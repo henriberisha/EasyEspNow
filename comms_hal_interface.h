@@ -3,8 +3,43 @@
 
 #include <esp_wifi.h>
 
-typedef std::function<void(uint8_t *address, uint8_t *data, uint8_t len, signed int rssi, bool broadcast)> comms_hal_rcvd_data;
-typedef std::function<void(uint8_t *address, uint8_t status)> comms_hal_sent_data;
+typedef struct
+{
+    unsigned protocol : 2;
+    unsigned type : 2;
+    unsigned subtype : 4;
+    uint8_t flags;
+    uint16_t duration;
+    uint8_t destination_address[6];
+    uint8_t source_address[6];
+    uint8_t broadcast_address[6];
+    uint16_t sequence_control;
+
+    uint8_t category_code;
+    uint8_t organization_identifier[3]; // 0x18fe34
+    uint8_t random_values[4];
+    struct
+    {
+        uint8_t element_id;                 // 0xdd
+        uint8_t length;                     //
+        uint8_t organization_identifier[3]; // 0x18fe34
+        uint8_t type;                       // 4
+        uint8_t version;
+        uint8_t body[0];
+    } vendor_specific_content;
+} __attribute__((packed)) espnow_frame_format_t;
+
+typedef struct
+{
+    wifi_pkt_rx_ctrl_t *radio_header;
+    espnow_frame_format_t *esp_now_frame;
+} espnow_frame_recv_info_t;
+
+typedef std::function<void(const uint8_t *src_mac, const uint8_t *data, int data_len, espnow_frame_recv_info_t *esp_now_frame)> frame_rcvd_data;
+typedef std::function<void(const uint8_t *dst_addr, uint8_t status)> frame_sent_data;
+
+// typedef std::function<void(uint8_t *address, uint8_t *data, uint8_t len, signed int rssi, bool broadcast)> comms_hal_rcvd_data;
+// typedef std::function<void(uint8_t *address, uint8_t status)> comms_hal_sent_data;
 
 static uint8_t ESPNOW_BROADCAST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 static const uint8_t MIN_WIFI_CHANNEL = 0; // if channel would be 0, then set the channel to the default/ or the channel that the radio is actually on
@@ -34,10 +69,12 @@ protected:
 
     int test_var;
 
-    comms_hal_rcvd_data dataRcvd = 0;   ///< @brief Pointer to a function to be called on every received message
-    comms_hal_sent_data sentResult = 0; ///< @brief Pointer to a function to be called to notify last sending status
+    // comms_hal_rcvd_data dataRcvd = 0;   ///< @brief Pointer to a function to be called on every received message
+    // comms_hal_sent_data sentResult = 0; ///< @brief Pointer to a function to be called to notify last sending status
+    frame_sent_data dataSent = nullptr;
+    frame_rcvd_data dataReceived = nullptr;
 
-    virtual void initComms() = 0;
+    virtual bool initComms() = 0;
 
 public:
     CommsHalInterface() {}
@@ -75,13 +112,17 @@ public:
      * @brief Attach a callback function to be run on every received message
      * @param dataRcvd Pointer to the callback function
      */
-    virtual void onDataRcvd(comms_hal_rcvd_data dataRcvd) = 0;
+    // virtual void onDataRcvd(comms_hal_rcvd_data dataRcvd) = 0;
 
     /**
      * @brief Attach a callback function to be run after sending a message to receive its status
      * @param dataRcvd Pointer to the callback function
      */
-    virtual void onDataSent(comms_hal_sent_data dataSent) = 0;
+    // virtual void onDataSent(comms_hal_sent_data dataSent) = 0;
+
+    virtual void onDataReceived(frame_rcvd_data frame_rcvd_cb) = 0;
+
+    virtual void onDataSent(frame_sent_data frame_sent_cb) = 0;
 
     /**
      * @brief Get address length that a specific communication subsystem uses

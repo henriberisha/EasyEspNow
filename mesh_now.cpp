@@ -1,23 +1,8 @@
 #include "mesh_now.h"
 
-constexpr auto TEST_TAG = "TEST";
+MeshNowEsp meshNowEsp;
+
 constexpr auto TAG = "MESH_NOW_ESP";
-
-// MeshNowEsp mesh;
-
-bool Test::begin()
-{
-    Serial.println("Begin Test");
-
-    INFO(TEST_TAG, "Info message");
-    MONITOR(TEST_TAG, "TEST");
-    ERROR(TEST_TAG, "An error occurred: %s", "Connection failed");
-    WARNING(TEST_TAG, "Warning value: %d", 42);
-    INFO(TEST_TAG, "Info message");
-    DEBUG(TEST_TAG, "Debug: %s", "Connection failed");
-    VERBOSE(TEST_TAG, "vhgc");
-    return true;
-}
 
 bool MeshNowEsp::begin(uint8_t channel, wifi_interface_t phy_interface)
 {
@@ -81,18 +66,10 @@ bool MeshNowEsp::begin(uint8_t channel, wifi_interface_t phy_interface)
         }
     }
 
-    // Init ESP-NOW here
-    err = esp_now_init();
-    if (err == ESP_OK)
-    {
-        MONITOR(TAG, "Success initializing ESP-NOW");
-    }
-    else
-    {
-        MONITOR(TAG, "Failed to initialize ESP-NOW");
-        ERROR(TAG, "Failed to initialize ESP-NOW with error: %s", esp_err_to_name(err));
+    // initcomms here
+
+    if (initComms() == false)
         return false;
-    }
 
     this->wifi_mode = mode;
     this->wifi_phy_interface = phy_interface;
@@ -119,6 +96,9 @@ bool MeshNowEsp::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
 
 void MeshNowEsp::stop()
 {
+    esp_now_unregister_recv_cb();
+    esp_now_unregister_send_cb();
+    esp_now_deinit();
 }
 
 int32_t MeshNowEsp::getEspNowVersion()
@@ -141,18 +121,93 @@ comms_send_error_t MeshNowEsp::send(const uint8_t *dstAddress, const uint8_t *pa
 {
 }
 
-void MeshNowEsp::onDataRcvd(comms_hal_rcvd_data dataRcvd)
-{
-}
+// void MeshNowEsp::onDataRcvd(comms_hal_rcvd_data dataRcvd){}
 
-void MeshNowEsp::onDataSent(comms_hal_sent_data sentResult)
-{
-}
+// void MeshNowEsp::onDataSent(comms_hal_sent_data sentResult){}
 
 void MeshNowEsp::enableTransmit(bool enable)
 {
 }
 
-void MeshNowEsp::initComms()
+bool MeshNowEsp::initComms()
 {
+    // Init ESP-NOW here
+    err = esp_now_init();
+    if (err == ESP_OK)
+    {
+        MONITOR(TAG, "Success initializing ESP-NOW");
+    }
+    else
+    {
+        MONITOR(TAG, "Failed to initialize ESP-NOW");
+        ERROR(TAG, "Failed to initialize ESP-NOW with error: %s", esp_err_to_name(err));
+        return false;
+    }
+
+    // Register low-level rx cb
+    err = esp_now_register_recv_cb(rx_cb);
+    if (err == ESP_OK)
+    {
+        MONITOR(TAG, "Success registering low level ESP-NOW RX callback");
+    }
+    else
+    {
+        MONITOR(TAG, "Failed registering low level ESP-NOW RX callback");
+        ERROR(TAG, "Failed registering low level ESP-NOW RX callback with error: %s", esp_err_to_name(err));
+        return false;
+    }
+
+    // Register low-level tx cb
+    err = esp_now_register_send_cb(tx_cb);
+    if (err == ESP_OK)
+    {
+        MONITOR(TAG, "Success registering low level ESP-NOW TX callback");
+    }
+    else
+    {
+        MONITOR(TAG, "Failed registering low level ESP-NOW TX callback");
+        ERROR(TAG, "Failed registering low level ESP-NOW TX callback with error: %s", esp_err_to_name(err));
+        return false;
+    }
+
+    return true;
+}
+
+// Register cb
+void MeshNowEsp::onDataReceived(frame_rcvd_data frame_rcvd_cb)
+{
+    DEBUG(TAG, "Registering custom onReceive Callback Function");
+    dataReceived = frame_rcvd_cb;
+}
+
+void MeshNowEsp::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len)
+{
+    DEBUG(TAG, "Calling ESP-NOW low level RX cb");
+
+    espnow_frame_format_t *esp_now_packet = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
+    wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
+    wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
+
+    espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .esp_now_frame = esp_now_packet};
+
+    if (meshNowEsp.dataReceived != nullptr)
+    {
+        meshNowEsp.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
+    }
+}
+
+void MeshNowEsp::onDataSent(frame_sent_data frame_sent_cb)
+{
+    DEBUG(TAG, "Registering custom onSent Callback function");
+    dataSent = frame_sent_cb;
+}
+
+void MeshNowEsp::tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
+    DEBUG(TAG, "Calling ESP-NOW low level TX cb");
+
+    if (meshNowEsp.dataSent != nullptr)
+    {
+        meshNowEsp.dataSent(mac_addr, status);
+    }
 }
