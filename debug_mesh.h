@@ -30,6 +30,9 @@
  *
  **/
 
+#define EASYMAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#define EASYMACSTR "%02X:%02X:%02X:%02X:%02X:%02X"
+
 // Define the log levels
 #define LOG_NONE 0
 #define LOG_MONITOR 1

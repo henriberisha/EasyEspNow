@@ -211,3 +211,68 @@ void MeshNowEsp::tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
         meshNowEsp.dataSent(mac_addr, status);
     }
 }
+
+bool MeshNowEsp::addPeer(const uint8_t *peer_addr_to_add)
+{
+    // peer can be in a different interface from the home (this station) and still receive the message.
+    esp_now_peer_info_t peer_info;
+    memcpy(peer_info.peer_addr, peer_addr_to_add, MAC_ADDR_LEN);
+    peer_info.ifidx = wifi_phy_interface; // this does not really matter to set it the same as the peer. This is relevant to the home station WiFi mode and interface. ESP_ERR_ESPNOW_IF
+    peer_info.channel = wifi_primary_channel;
+    peer_info.encrypt = false;
+
+    err = esp_now_add_peer(&peer_info);
+    if (err == ESP_OK)
+    {
+        memcpy(peer_list.peer[peer_list.peer_number].mac, peer_addr_to_add, MAC_ADDR_LEN);
+        peer_list.peer[peer_list.peer_number].time_peer_added = millis();
+        peer_list.peer_number++;
+
+        MONITOR(TAG, "Successfully added peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_addr_to_add), peer_list.peer_number);
+        return true;
+    }
+    else
+    {
+        ERROR(TAG, "Failed to add peer: [" EASYMACSTR "] with error: %s\n", EASYMAC2STR(peer_addr_to_add), esp_err_to_name(err));
+        return false;
+    }
+}
+
+bool MeshNowEsp::deletePeer(const uint8_t *peer_addr_to_delete)
+{
+    err = esp_now_del_peer(peer_addr_to_delete);
+    if (err == ESP_OK)
+    {
+        for (int i = 0; i < peer_list.peer_number; i++)
+        {
+            if (memcmp(peer_list.peer[i].mac, peer_addr_to_delete, MAC_ADDR_LEN) == 0)
+            {
+                // Peer found, shift subsequent peers to fill the gap
+                for (int j = i; j < peer_list.peer_number - 1; j++)
+                {
+                    peer_list.peer[j] = peer_list.peer[j + 1];
+                }
+                // Decrease the peer count
+                peer_list.peer_number--;
+                break;
+            }
+        }
+
+        MONITOR(TAG, "Successfully deleted peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_addr_to_delete), peer_list.peer_number);
+        return true;
+    }
+    else
+    {
+        ERROR(TAG, "Failed to delete peer: [" EASYMACSTR "] with error: %s\n", EASYMAC2STR(peer_addr_to_delete), esp_err_to_name(err));
+        return false;
+    }
+}
+
+void MeshNowEsp::printPeerList()
+{
+    Serial.printf("Number of peers %d\n", peer_list.peer_number);
+    for (int i = 0; i < peer_list.peer_number; i++)
+    {
+        Serial.printf("Peer [" EASYMACSTR "] is %d ms old\n", MAC2STR(peer_list.peer[i].mac), millis() - peer_list.peer[i].time_peer_added);
+    }
+}

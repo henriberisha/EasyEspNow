@@ -2,6 +2,7 @@
 #include "MeshNowEsp.h"
 
 uint8_t channel = 9;
+uint8_t TEST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFA};
 
 void onFrameReceived_cb(const uint8_t *senderAddr, const uint8_t *data, int len, espnow_frame_recv_info_t *frame)
 {
@@ -90,23 +91,35 @@ void setup()
     meshNowEsp.onDataReceived(onFrameReceived_cb);
     meshNowEsp.onDataSent(OnFrameSent_cb);
 
-    // peer can be in a different interface from the home (this station) and still receive the message.
-    esp_now_peer_info_t peer_info;
-    memcpy(peer_info.peer_addr, ESPNOW_BROADCAST_ADDRESS, 6);
-    peer_info.ifidx = WIFI_IF_STA; // this does not really matter to set it the same as the peer. This is relevant to the home station WiFi mode and interface. ESP_ERR_ESPNOW_IF
-    peer_info.channel = channel;
-    peer_info.encrypt = false;
+    // // peer can be in a different interface from the home (this station) and still receive the message.
+    // esp_now_peer_info_t peer_info;
+    // memcpy(peer_info.peer_addr, ESPNOW_BROADCAST_ADDRESS, 6);
+    // peer_info.ifidx = WIFI_IF_STA; // this does not really matter to set it the same as the peer. This is relevant to the home station WiFi mode and interface. ESP_ERR_ESPNOW_IF
+    // peer_info.channel = channel;
+    // peer_info.encrypt = false;
 
-    ret = esp_now_add_peer(&peer_info);
-    if (ret == ESP_OK)
-    {
-        Serial.println("Success adding broadcast peer");
-    }
-    else
-    {
-        Serial.println("Failed to add broadcast peer");
-        return;
-    }
+    // ret = esp_now_add_peer(&peer_info);
+    // if (ret == ESP_OK)
+    // {
+    //     Serial.println("Success adding broadcast peer");
+    // }
+    // else
+    // {
+    //     Serial.println("Failed to add broadcast peer");
+    //     return;
+    // }
+
+    Serial.println(meshNowEsp.addPeer(ESPNOW_BROADCAST_ADDRESS));
+    Serial.println(meshNowEsp.addPeer(TEST_ADDRESS));
+
+    meshNowEsp.printPeerList();
+
+    Serial.println(meshNowEsp.deletePeer(ESPNOW_BROADCAST_ADDRESS));
+    meshNowEsp.printPeerList();
+    Serial.println(meshNowEsp.deletePeer(TEST_ADDRESS));
+    meshNowEsp.printPeerList();
+    Serial.println(meshNowEsp.addPeer(ESPNOW_BROADCAST_ADDRESS));
+    meshNowEsp.printPeerList();
 }
 
 void loop()

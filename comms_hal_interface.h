@@ -41,12 +41,6 @@ typedef std::function<void(const uint8_t *dst_addr, uint8_t status)> frame_sent_
 // typedef std::function<void(uint8_t *address, uint8_t *data, uint8_t len, signed int rssi, bool broadcast)> comms_hal_rcvd_data;
 // typedef std::function<void(uint8_t *address, uint8_t status)> comms_hal_sent_data;
 
-static uint8_t ESPNOW_BROADCAST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-static const uint8_t MIN_WIFI_CHANNEL = 0; // if channel would be 0, then set the channel to the default/ or the channel that the radio is actually on
-static const uint8_t MAX_WIFI_CHANNEL = 14;
-static const size_t ESPNOW_MAX_MESSAGE_LENGTH = 250; ///< @brief Maximum message length
-static const uint8_t ESPNOW_ADDR_LEN = 6;            ///< @brief Address length
-
 typedef enum
 {
     COMMS_SEND_OK = 0,                    /**< Data was enqued for sending successfully */
