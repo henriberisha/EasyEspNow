@@ -4,7 +4,7 @@
 #define MESH_NOW_ESP_H
 
 #if defined ESP32
-#include "mesh_now.h"
+#include "easy_esp_now.h"
 #endif // ESP32
 
 #endif // MESH_ESP_NOW_H

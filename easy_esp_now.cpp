@@ -1,10 +1,10 @@
-#include "mesh_now.h"
+#include "easy_esp_now.h"
 
-MeshNowEsp meshNowEsp;
+EasyEspNow easyEspNow;
 
 constexpr auto TAG = "MESH_NOW_ESP";
 
-bool MeshNowEsp::begin(uint8_t channel, wifi_interface_t phy_interface)
+bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface)
 {
     wifi_mode_t mode;
     err = esp_wifi_get_mode(&mode);
@@ -77,7 +77,7 @@ bool MeshNowEsp::begin(uint8_t channel, wifi_interface_t phy_interface)
     return true;
 }
 
-bool MeshNowEsp::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
+bool EasyEspNow::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
 {
     esp_err_t ret = esp_wifi_set_channel(primary_channel, second);
     if (ret == ESP_OK)
@@ -94,14 +94,14 @@ bool MeshNowEsp::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
     }
 }
 
-void MeshNowEsp::stop()
+void EasyEspNow::stop()
 {
     esp_now_unregister_recv_cb();
     esp_now_unregister_send_cb();
     esp_now_deinit();
 }
 
-int32_t MeshNowEsp::getEspNowVersion()
+int32_t EasyEspNow::getEspNowVersion()
 {
     uint32_t esp_now_version;
     err = esp_now_get_version(&esp_now_version);
@@ -117,19 +117,19 @@ int32_t MeshNowEsp::getEspNowVersion()
     }
 }
 
-comms_send_error_t MeshNowEsp::send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len)
+comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len)
 {
 }
 
-// void MeshNowEsp::onDataRcvd(comms_hal_rcvd_data dataRcvd){}
+// void EasyEspNow::onDataRcvd(comms_hal_rcvd_data dataRcvd){}
 
-// void MeshNowEsp::onDataSent(comms_hal_sent_data sentResult){}
+// void EasyEspNow::onDataSent(comms_hal_sent_data sentResult){}
 
-void MeshNowEsp::enableTransmit(bool enable)
+void EasyEspNow::enableTransmit(bool enable)
 {
 }
 
-bool MeshNowEsp::initComms()
+bool EasyEspNow::initComms()
 {
     // Init ESP-NOW here
     err = esp_now_init();
@@ -174,13 +174,13 @@ bool MeshNowEsp::initComms()
 }
 
 // Register cb
-void MeshNowEsp::onDataReceived(frame_rcvd_data frame_rcvd_cb)
+void EasyEspNow::onDataReceived(frame_rcvd_data frame_rcvd_cb)
 {
     DEBUG(TAG, "Registering custom onReceive Callback Function");
     dataReceived = frame_rcvd_cb;
 }
 
-void MeshNowEsp::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len)
+void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len)
 {
     DEBUG(TAG, "Calling ESP-NOW low level RX cb");
 
@@ -190,29 +190,29 @@ void MeshNowEsp::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_le
 
     espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .esp_now_frame = esp_now_packet};
 
-    if (meshNowEsp.dataReceived != nullptr)
+    if (easyEspNow.dataReceived != nullptr)
     {
-        meshNowEsp.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
+        easyEspNow.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
     }
 }
 
-void MeshNowEsp::onDataSent(frame_sent_data frame_sent_cb)
+void EasyEspNow::onDataSent(frame_sent_data frame_sent_cb)
 {
     DEBUG(TAG, "Registering custom onSent Callback function");
     dataSent = frame_sent_cb;
 }
 
-void MeshNowEsp::tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
+void EasyEspNow::tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
     DEBUG(TAG, "Calling ESP-NOW low level TX cb");
 
-    if (meshNowEsp.dataSent != nullptr)
+    if (easyEspNow.dataSent != nullptr)
     {
-        meshNowEsp.dataSent(mac_addr, status);
+        easyEspNow.dataSent(mac_addr, status);
     }
 }
 
-bool MeshNowEsp::addPeer(const uint8_t *peer_addr_to_add)
+bool EasyEspNow::addPeer(const uint8_t *peer_addr_to_add)
 {
     // peer can be in a different interface from the home (this station) and still receive the message.
     esp_now_peer_info_t peer_info;
@@ -238,7 +238,7 @@ bool MeshNowEsp::addPeer(const uint8_t *peer_addr_to_add)
     }
 }
 
-bool MeshNowEsp::deletePeer(const uint8_t *peer_addr_to_delete)
+bool EasyEspNow::deletePeer(const uint8_t *peer_addr_to_delete)
 {
     err = esp_now_del_peer(peer_addr_to_delete);
     if (err == ESP_OK)
@@ -269,7 +269,7 @@ bool MeshNowEsp::deletePeer(const uint8_t *peer_addr_to_delete)
 }
 
 // here probably add argument to keep broadcast address TODO
-uint8_t *MeshNowEsp::deletePeer()
+uint8_t *EasyEspNow::deletePeer()
 {
     uint8_t oldest_index = 0;
     uint32_t oldest_peer_time = peer_list.peer[0].time_peer_added;
@@ -307,7 +307,7 @@ uint8_t *MeshNowEsp::deletePeer()
     }
 }
 
-peer_t *MeshNowEsp::getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info)
+peer_t *EasyEspNow::getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info)
 {
     peer_t *peer;
 
@@ -329,7 +329,7 @@ peer_t *MeshNowEsp::getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t
         return nullptr;
     }
 }
-void MeshNowEsp::printPeerList()
+void EasyEspNow::printPeerList()
 {
     Serial.printf("Number of peers %d\n", peer_list.peer_number);
     for (int i = 0; i < peer_list.peer_number; i++)

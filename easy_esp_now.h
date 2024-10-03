@@ -2,7 +2,7 @@
 #define MESH_NOW_H
 
 #include "Arduino.h"
-#include "debug_mesh.h"
+#include "easy_debug.h"
 #include "comms_hal_interface.h"
 
 #include <WiFi.h>
@@ -49,7 +49,7 @@ typedef struct
     peer_t peer[MAX_TOTAL_PEER_NUM];
 } peer_list_t;
 
-class MeshNowEsp : public CommsHalInterface
+class EasyEspNow : public CommsHalInterface
 {
 public:
     bool begin(uint8_t channel, wifi_interface_t phy_interface) override;
@@ -94,6 +94,6 @@ protected:
     static void tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status);
 };
 
-extern MeshNowEsp meshNowEsp;
+extern EasyEspNow easyEspNow;
 
 #endif

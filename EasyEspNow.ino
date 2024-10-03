@@ -1,5 +1,5 @@
 // #include "mesh_now.h"
-#include "MeshNowEsp.h"
+#include "EasyEspNow.h"
 
 uint8_t channel = 9;
 uint8_t TEST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFA};
@@ -78,19 +78,19 @@ void setup()
     Serial.println("Hello World!");
     MONITOR(MAIN_TAG, "Hello World & Mesh");
 
-    meshNowEsp.printtest();
+    easyEspNow.printtest();
     // Serial.println(mesh.getEspNowVersion());
 
     WiFi.mode(WIFI_MODE_STA);
 
     Serial.printf("Starting WiFi channel: %d\n", WiFi.channel());
 
-    Serial.println(meshNowEsp.begin(channel, WIFI_IF_STA));
+    Serial.println(easyEspNow.begin(channel, WIFI_IF_STA));
 
-    Serial.println(meshNowEsp.getEspNowVersion());
+    Serial.println(easyEspNow.getEspNowVersion());
 
-    meshNowEsp.onDataReceived(onFrameReceived_cb);
-    meshNowEsp.onDataSent(OnFrameSent_cb);
+    easyEspNow.onDataReceived(onFrameReceived_cb);
+    easyEspNow.onDataSent(OnFrameSent_cb);
 
     // // peer can be in a different interface from the home (this station) and still receive the message.
     // esp_now_peer_info_t peer_info;
@@ -110,22 +110,22 @@ void setup()
     //     return;
     // }
 
-    Serial.println(meshNowEsp.addPeer(ESPNOW_BROADCAST_ADDRESS));
-    Serial.println(meshNowEsp.addPeer(TEST_ADDRESS));
+    Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
+    Serial.println(easyEspNow.addPeer(TEST_ADDRESS));
 
-    meshNowEsp.printPeerList();
+    easyEspNow.printPeerList();
 
-    Serial.println(meshNowEsp.deletePeer(ESPNOW_BROADCAST_ADDRESS));
-    meshNowEsp.printPeerList();
-    Serial.println(meshNowEsp.deletePeer(TEST_ADDRESS));
-    meshNowEsp.printPeerList();
-    Serial.println(meshNowEsp.addPeer(ESPNOW_BROADCAST_ADDRESS));
-    meshNowEsp.printPeerList();
+    Serial.println(easyEspNow.deletePeer(ESPNOW_BROADCAST_ADDRESS));
+    easyEspNow.printPeerList();
+    Serial.println(easyEspNow.deletePeer(TEST_ADDRESS));
+    easyEspNow.printPeerList();
+    Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
+    easyEspNow.printPeerList();
 
-    Serial.println(meshNowEsp.addPeer(TEST_ADDRESS));
+    Serial.println(easyEspNow.addPeer(TEST_ADDRESS));
     peer_t *peer;
     esp_now_peer_info_t peer_info;
-    peer = meshNowEsp.getPeer(TEST_ADDRESS2, peer_info);
+    peer = easyEspNow.getPeer(TEST_ADDRESS2, peer_info);
     if (peer)
     {
         Serial.printf("Peer: [" EASYMACSTR "] with timestamp: %d ms\n", EASYMAC2STR(peer->mac), peer->time_peer_added);
