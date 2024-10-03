@@ -76,7 +76,7 @@ public:
     bool addPeer(const uint8_t *peer_addr_to_add);
     bool deletePeer(const uint8_t *peer_addr_to_delete); // this should delete the peer given by the mac
     uint8_t *deletePeer();                               // this should delete the oldest peer
-    peer_t *getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t *peer_info);
+    peer_t *getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info);
     // needed a modify peer TODO
     bool peerExists(const uint8_t *peer_addr);
 

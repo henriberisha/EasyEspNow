@@ -3,6 +3,7 @@
 
 uint8_t channel = 9;
 uint8_t TEST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFA};
+uint8_t TEST_ADDRESS2[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFB};
 
 void onFrameReceived_cb(const uint8_t *senderAddr, const uint8_t *data, int len, espnow_frame_recv_info_t *frame)
 {
@@ -120,6 +121,21 @@ void setup()
     meshNowEsp.printPeerList();
     Serial.println(meshNowEsp.addPeer(ESPNOW_BROADCAST_ADDRESS));
     meshNowEsp.printPeerList();
+
+    Serial.println(meshNowEsp.addPeer(TEST_ADDRESS));
+    peer_t *peer;
+    esp_now_peer_info_t peer_info;
+    peer = meshNowEsp.getPeer(TEST_ADDRESS2, peer_info);
+    if (peer)
+    {
+        Serial.printf("Peer: [" EASYMACSTR "] with timestamp: %d ms\n", EASYMAC2STR(peer->mac), peer->time_peer_added);
+        Serial.printf("Detailed peer info -> MAC: " EASYMACSTR ", CHANNEL: %d, ENCRYPTION: %s\n\n",
+                      EASYMAC2STR(peer_info.peer_addr), peer_info.channel, peer_info.encrypt == 0 ? "Not Encrypted" : "Encrypted");
+    }
+    else
+    {
+        Serial.printf("Can't get peer");
+    }
 }
 
 void loop()

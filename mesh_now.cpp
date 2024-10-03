@@ -268,6 +268,67 @@ bool MeshNowEsp::deletePeer(const uint8_t *peer_addr_to_delete)
     }
 }
 
+// here probably add argument to keep broadcast address TODO
+uint8_t *MeshNowEsp::deletePeer()
+{
+    uint8_t oldest_index = 0;
+    uint32_t oldest_peer_time = peer_list.peer[0].time_peer_added;
+
+    for (int i = 0; i < peer_list.peer_number; i++)
+    {
+        // Time, is saved in millis, time increases, so older peers will have smaller time value as they were adder earlier
+        if (peer_list.peer[i].time_peer_added < oldest_peer_time)
+        {
+            oldest_peer_time = peer_list.peer[i].time_peer_added;
+            oldest_index = i;
+        }
+    }
+
+    uint8_t *peer_mac_to_delete;
+    memcpy(peer_mac_to_delete, peer_list.peer[oldest_index].mac, MAC_ADDR_LEN);
+
+    err = esp_now_del_peer(peer_mac_to_delete);
+    if (err == ESP_OK)
+    {
+        // Peer found, shift subsequent peers to fill the gap
+        for (int j = oldest_index; j < peer_list.peer_number - 1; j++)
+        {
+            peer_list.peer[j] = peer_list.peer[j + 1];
+        }
+        // Decrease the peer count
+        peer_list.peer_number--;
+        MONITOR(TAG, "Successfully deleted peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_mac_to_delete), peer_list.peer_number);
+        return peer_mac_to_delete;
+    }
+    else
+    {
+        ERROR(TAG, "Failed to delete peer: [" EASYMACSTR "] with error: %s\n", EASYMAC2STR(peer_mac_to_delete), esp_err_to_name(err));
+        return nullptr;
+    }
+}
+
+peer_t *MeshNowEsp::getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info)
+{
+    peer_t *peer;
+
+    err = esp_now_get_peer(peer_addr_to_get, &peer_info);
+    if (err == ESP_OK)
+    {
+        for (int i = 0; i < peer_list.peer_number; i++)
+        {
+            if (memcmp(peer_list.peer[i].mac, peer_addr_to_get, MAC_ADDR_LEN) == 0)
+            {
+                MONITOR(TAG, "Success getting peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_addr_to_get), peer_list.peer_number);
+                return peer_list.peer;
+            }
+        }
+    }
+    else
+    {
+        ERROR(TAG, "Failed to get peer: [" EASYMACSTR "] with error: %s\n", EASYMAC2STR(peer_addr_to_get), esp_err_to_name(err));
+        return nullptr;
+    }
+}
 void MeshNowEsp::printPeerList()
 {
     Serial.printf("Number of peers %d\n", peer_list.peer_number);
