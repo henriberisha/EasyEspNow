@@ -123,6 +123,10 @@ void setup()
     easyEspNow.printPeerList();
 
     Serial.println(easyEspNow.addPeer(TEST_ADDRESS));
+
+    Serial.printf("Total peers: %d. Encrypted Peers: %d. Unencrypted Peers: %d\n\n",
+                  easyEspNow.countPeers(TOTAL_NUM), easyEspNow.countPeers(ENCRYPTED_NUM), easyEspNow.countPeers(UNENCRYPTED_NUM));
+
     peer_t *peer;
     esp_now_peer_info_t peer_info;
     peer = easyEspNow.getPeer(TEST_ADDRESS2, peer_info);

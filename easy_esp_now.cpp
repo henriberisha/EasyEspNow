@@ -329,6 +329,34 @@ peer_t *EasyEspNow::getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t
         return nullptr;
     }
 }
+
+bool EasyEspNow::peerExists(const uint8_t* peer_addr){
+    return esp_now_is_peer_exist(peer_addr);
+}
+
+int EasyEspNow::countPeers(CountPeers count_type){
+    esp_now_peer_num_t num;
+    
+    err = esp_now_get_peer_num(&num);
+    if(err==ESP_OK){
+        switch(count_type){
+            case TOTAL_NUM:
+                return num.total_num;
+            case ENCRYPTED_NUM:
+                return num.encrypt_num;
+            case UNENCRYPTED_NUM:
+                return num.total_num - num.encrypt_num;
+            default:
+                ERROR(TAG, "Invalid option chosen for peer count type!");
+                return -1;
+        }
+    }
+    else{
+        ERROR(TAG, "Failed to get peer count with error: %s", esp_err_to_name(err));
+        return -1;
+    }
+}
+
 void EasyEspNow::printPeerList()
 {
     Serial.printf("Number of peers %d\n", peer_list.peer_number);

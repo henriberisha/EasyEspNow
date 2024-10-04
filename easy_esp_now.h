@@ -49,6 +49,12 @@ typedef struct
     peer_t peer[MAX_TOTAL_PEER_NUM];
 } peer_list_t;
 
+enum CountPeers{
+    TOTAL_NUM = 0,
+    ENCRYPTED_NUM = 1,
+    UNENCRYPTED_NUM = 2
+};
+
 class EasyEspNow : public CommsHalInterface
 {
 public:
@@ -79,6 +85,7 @@ public:
     peer_t *getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info);
     // needed a modify peer TODO
     bool peerExists(const uint8_t *peer_addr);
+    int countPeers(CountPeers count_type);
 
     void printPeerList();
 
