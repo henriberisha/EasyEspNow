@@ -5,6 +5,17 @@ uint8_t channel = 9;
 uint8_t TEST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFA};
 uint8_t TEST_ADDRESS2[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFB};
 
+// Function to generate a random MAC address
+void generateRandomMAC(uint8_t *mac)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        mac[i] = random(0, 256); // Generate random byte for each part of the MAC
+    }
+    mac[0] &= 0xFE; // Set the local bit to indicate it's a locally administered address
+    mac[0] |= 0x02; // Ensure it's a unicast address
+}
+
 void onFrameReceived_cb(const uint8_t *senderAddr, const uint8_t *data, int len, espnow_frame_recv_info_t *frame)
 {
     /*
@@ -111,7 +122,47 @@ void setup()
     // }
 
     Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
+
+    uint8_t *res;
+    res = easyEspNow.deletePeer(false);
+    if (res)
+    {
+        Serial.printf("Deleted: \n" EASYMACSTR, EASYMAC2STR(res));
+    }
+    else
+    {
+        Serial.printf("No deletion");
+    }
+    return;
+
+    int count = 0;
+    Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
+    count++;
+    for (int i = 0; i < 25; i++)
+    {
+        uint8_t addr[6];
+        generateRandomMAC(addr);
+        if (easyEspNow.addPeer(addr))
+            count++;
+
+        Serial.printf("Iteration: %d. Success addition: %d. Mac: \n" EASYMACSTR, i, count, EASYMAC2STR(addr));
+
+        memset(addr, 0, 6);
+    }
+
+    easyEspNow.printPeerList();
+
+    res = easyEspNow.deletePeer();
+
+    Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
+
+    res = easyEspNow.deletePeer();
+
     Serial.println(easyEspNow.addPeer(TEST_ADDRESS));
+
+    easyEspNow.printPeerList();
+
+    res = easyEspNow.deletePeer();
 
     easyEspNow.printPeerList();
 
