@@ -119,6 +119,41 @@ int32_t EasyEspNow::getEspNowVersion()
 
 comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len)
 {
+	if (!dstAddress || !payload || !payload_len)
+	{
+		ERROR(TAG, "Parameters Error");
+		return COMMS_SEND_PARAM_ERROR;
+	}
+
+	if (payload_len > MAX_DATA_LENGTH)
+	{
+		ERROR(TAG, "Length: %d. Max payload length must be: %d", payload_len, MAX_DATA_LENGTH);
+		return COMMS_SEND_PAYLOAD_LENGTH_ERROR;
+	}
+
+	int enqueued_tx_messages = uxQueueMessagesWaiting(tx_queue);
+	if (enqueued_tx_messages == tx_queue_size)
+	{
+		WARNING(TAG, "TX Queue full. Can not add message to queue. Dropping message...");
+		return COMMS_SEND_QUEUE_FULL_ERROR;
+	}
+
+	tx_queue_item_t item_to_enqueue;
+	memcpy(item_to_enqueue.dst_address, dstAddress, ESP_NOW_ETH_ALEN);
+	memcpy(item_to_enqueue.payload_data, payload, payload_len);
+	item_to_enqueue.payload_len = payload_len;
+
+	// portMAX_DELAY -> will wait indefinitely
+	// pdMS_TO_TICKS -> will have a timeout
+	if (xQueueSend(txQueue, &item_to_enqueue, pdMS_TO_TICKS(20)) == pdTRUE)
+	{
+		return COMMS_SEND_OK;
+	}
+	else
+	{
+		WARNING(TAG, "Failed to enqueue item");
+		return COMMS_SEND_MSG_ENQUEUE_ERROR;
+	}
 }
 
 // void EasyEspNow::onDataRcvd(comms_hal_rcvd_data dataRcvd){}
@@ -169,6 +204,12 @@ bool EasyEspNow::initComms()
 		ERROR(TAG, "Failed registering low level ESP-NOW TX callback with error: %s", esp_err_to_name(err));
 		return false;
 	}
+
+	// tx_queue = xQueueCreate(tx_queue_size, sizeof(int));
+	// xTaskCreateUniversal(processTxQueueTask, "espnow_loop", 8 * 1024, NULL, 1, &txTask_handle, CONFIG_ARDUINO_RUNNING_CORE);
+
+	txQueue = xQueueCreate(tx_queue_size, sizeof(tx_queue_item_t));
+	xTaskCreateUniversal(easyEspNowTxQueueTask, "send_esp_now", 8 * 1024, NULL, 1, &txTaskHandle, CONFIG_ARDUINO_RUNNING_CORE);
 
 	return true;
 }
@@ -390,5 +431,60 @@ void EasyEspNow::printPeerList()
 	for (int i = 0; i < peer_list.peer_number; i++)
 	{
 		Serial.printf("Peer [" EASYMACSTR "] is %d ms old\n", MAC2STR(peer_list.peer[i].mac), millis() - peer_list.peer[i].time_peer_added);
+	}
+}
+
+// just for test, delete later
+void EasyEspNow::sendTest(int data)
+{
+	// Send data to the queue
+	int enqueued = uxQueueMessagesWaiting(tx_queue);
+	Serial.printf("Queue status (Enqueued | Size) -> %d | %d\n", enqueued, easyEspNow.tx_queue_size);
+	if (enqueued == tx_queue_size)
+	{
+		Serial.println("TX queu full");
+	}
+	// portMAX_DELAY -> will wait indefinitely
+	// pdMS_TO_TICKS -> will have a timeout
+	if (xQueueSend(tx_queue, &data, pdMS_TO_TICKS(20)) != pdTRUE)
+	{
+		Serial.println("Failed to send data to the queue");
+		easyEspNow.dropped++;
+	}
+	else
+	{
+		easyEspNow.success_process++;
+	}
+}
+
+// just for test, delete later
+void EasyEspNow::processTxQueueTask(void *pvParameters)
+{
+	int receivedData;
+
+	while (true)
+	{
+		// Wait for data from the queue
+		if (xQueueReceive(easyEspNow.tx_queue, &receivedData, portMAX_DELAY) == pdTRUE)
+		{
+			Serial.printf("Processing data: %d. Success | Dropped: %d | %d\n\n", receivedData, easyEspNow.success_process, easyEspNow.dropped);
+			// Simulate processing time
+			vTaskDelay(pdMS_TO_TICKS(100));
+		}
+	}
+}
+
+void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
+{
+	tx_queue_item_t item_to_dequeue;
+	while (true)
+	{
+		// Wait for data from the queue
+		if (xQueueReceive(easyEspNow.txQueue, &item_to_dequeue, portMAX_DELAY) == pdTRUE)
+		{
+			easyEspNow.err = esp_now_send(item_to_dequeue.dst_address, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
+			Serial.println(esp_err_to_name(easyEspNow.err));
+			// vTaskDelay(pdMS_TO_TICKS(100));
+		}
 	}
 }

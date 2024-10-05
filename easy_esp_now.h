@@ -56,6 +56,13 @@ enum CountPeers
 	UNENCRYPTED_NUM = 2
 };
 
+typedef struct
+{
+	uint8_t dst_address[MAC_ADDR_LEN];	   /**< Destination MAC*/
+	uint8_t payload_data[MAX_DATA_LENGTH]; /**< Payload Content*/
+	size_t payload_len;					   /**< Payload length*/
+} tx_queue_item_t;
+
 class EasyEspNow : public CommsHalInterface
 {
 public:
@@ -72,8 +79,9 @@ public:
 	{
 		return send(ESPNOW_BROADCAST_ADDRESS, payload, payload_len);
 	}
-	// void onDataRcvd(comms_hal_rcvd_data dataRcvd) override;
-	// void onDataSent(comms_hal_sent_data sentResult) override;
+
+	void sendTest(int data);
+
 	void onDataReceived(frame_rcvd_data frame_rcvd_cb) override;
 	void onDataSent(frame_sent_data frame_sent_cb) override;
 	uint8_t getAddressLength() override { return MAC_ADDR_LEN; }
@@ -149,10 +157,24 @@ public:
 	}
 
 protected:
+	TaskHandle_t txTaskHandle;
+	QueueHandle_t txQueue;
+
+	TaskHandle_t txTask_handle; // this is for testing only, will be deleted later
+	QueueHandle_t tx_queue;		// this is for testing only, will be deleted later
+	int tx_queue_size = 5;
+
+	int success_process = 0;
+	int dropped = 0;
+
 	peer_list_t peer_list;
 	bool initComms() override;
 	static void rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len);
 	static void tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status);
+
+	static void easyEspNowTxQueueTask(void *pvParameters);
+
+	static void processTxQueueTask(void *pvParameters); // this is for testing only, will be deleted later
 };
 
 extern EasyEspNow easyEspNow;

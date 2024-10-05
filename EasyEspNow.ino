@@ -1,6 +1,8 @@
 // #include "mesh_now.h"
 #include "EasyEspNow.h"
 
+int total_send = 0;
+
 uint8_t channel = 9;
 uint8_t TEST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFA};
 uint8_t TEST_ADDRESS2[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFB};
@@ -195,11 +197,20 @@ void setup()
 
 void loop()
 {
+    // THIS IS FOR TEST, DELETE LATER
+    // int num = random();
+    // Serial.printf("Sent: %d. Total sent: %d\n", num, ++total_send);
+    // easyEspNow.sendTest(num);
+    // vTaskDelay(pdMS_TO_TICKS(80));
+    // return;
+
     String message = "Hello, world! " + String(random());
     // Even to send a broadcast, the broadcast address needs to be added as a peer, o/w it will fail
-    ret = esp_now_send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
-    Serial.println(esp_err_to_name(ret));
-    Serial.print(".");
-    delay(1000);
-    // Your code here
+    // ret = esp_now_send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
+    // Serial.println(esp_err_to_name(ret));
+
+    easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
+    vTaskDelay(pdMS_TO_TICKS(80));
+    // delay(1000);
+    //  Your code here
 }
