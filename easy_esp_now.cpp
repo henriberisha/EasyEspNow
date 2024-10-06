@@ -2,7 +2,7 @@
 
 EasyEspNow easyEspNow;
 
-constexpr auto TAG = "MESH_NOW_ESP";
+constexpr auto TAG = "EASY_ESP_NOW";
 
 bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface)
 {
@@ -131,7 +131,7 @@ comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *pa
 		return COMMS_SEND_PAYLOAD_LENGTH_ERROR;
 	}
 
-	int enqueued_tx_messages = uxQueueMessagesWaiting(tx_queue);
+	int enqueued_tx_messages = uxQueueMessagesWaiting(txQueue);
 	if (enqueued_tx_messages == tx_queue_size)
 	{
 		WARNING(TAG, "TX Queue full. Can not add message to queue. Dropping message...");
@@ -147,6 +147,7 @@ comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *pa
 	// pdMS_TO_TICKS -> will have a timeout
 	if (xQueueSend(txQueue, &item_to_enqueue, pdMS_TO_TICKS(20)) == pdTRUE)
 	{
+		MONITOR(TAG, "Success to enqueue TX message");
 		return COMMS_SEND_OK;
 	}
 	else
@@ -209,6 +210,16 @@ bool EasyEspNow::initComms()
 	// xTaskCreateUniversal(processTxQueueTask, "espnow_loop", 8 * 1024, NULL, 1, &txTask_handle, CONFIG_ARDUINO_RUNNING_CORE);
 
 	txQueue = xQueueCreate(tx_queue_size, sizeof(tx_queue_item_t));
+	// Check if the queue was created successfully
+	if (txQueue == NULL)
+	{
+		Serial.println("Failed to create the queue!");
+		// Handle the error, possibly halt or retry queue creation
+	}
+	else
+	{
+		Serial.println("Queue created successfully.");
+	}
 	xTaskCreateUniversal(easyEspNowTxQueueTask, "send_esp_now", 8 * 1024, NULL, 1, &txTaskHandle, CONFIG_ARDUINO_RUNNING_CORE);
 
 	return true;

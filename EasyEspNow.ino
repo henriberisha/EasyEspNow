@@ -135,7 +135,7 @@ void setup()
     {
         Serial.printf("No deletion");
     }
-    return;
+    // return;
 
     int count = 0;
     Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
@@ -193,6 +193,8 @@ void setup()
     {
         Serial.printf("Can't get peer");
     }
+
+    Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
 }
 
 void loop()
