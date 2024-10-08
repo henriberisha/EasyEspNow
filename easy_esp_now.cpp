@@ -55,7 +55,7 @@ bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface)
 	}
 	else if (channel == 0)
 	{
-		MONITOR(TAG, "WiFi channel selection = %d. WiFi radio will remain on default channel: %d\n", channel, wifi_primary_channel);
+		MONITOR(TAG, "WiFi channel selection = %d. WiFi radio will remain on default channel: %d", channel, wifi_primary_channel);
 	}
 	else
 	{
@@ -73,6 +73,16 @@ bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface)
 
 	this->wifi_mode = mode;
 	this->wifi_phy_interface = phy_interface;
+
+	err = esp_wifi_get_mac(this->wifi_phy_interface, this->my_mac_address);
+	if (err == ESP_OK)
+	{
+		INFO(TAG, "This device's MAC is avaiable. Success getting device's self MAC address for the chosen WiFi interface.");
+	}
+	else
+	{
+		WARNING(TAG, "This device's MAC is not avaiable. Failed getting device's self MAC address with error: %s", esp_err_to_name(err));
+	}
 
 	return true;
 }
@@ -161,6 +171,59 @@ comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *pa
 
 // void EasyEspNow::onDataSent(comms_hal_sent_data sentResult){}
 
+uint8_t *EasyEspNow::getDeviceMACAddress()
+{
+	uint8_t zero_mac[MAC_ADDR_LEN] = {0};
+
+	if (memcmp(my_mac_address, zero_mac, MAC_ADDR_LEN) == 0)
+	{
+		WARNING(TAG, "This device's MAC is not avaiable");
+		return nullptr;
+	}
+
+	return this->my_mac_address;
+}
+
+char *EasyEspNow::easyMac2Char(const uint8_t *some_mac, size_t len, bool upper_case)
+{
+	const uint8_t default_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	const char *format;
+	if (upper_case)
+		format = "%02X:%02X:%02X:%02X:%02X:%02X";
+	else
+		format = "%02x:%02x:%02x:%02x:%02x:%02x";
+
+	if (!some_mac || len != 6)
+	{
+		some_mac = default_mac;
+		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
+	}
+
+	static char mac_2_char[18] = {0};
+	sprintf(mac_2_char, format, some_mac[0], some_mac[1], some_mac[2], some_mac[3], some_mac[4], some_mac[5]);
+	return mac_2_char;
+}
+
+void EasyEspNow::easyPrintMac2Char(const uint8_t *some_mac, size_t len, bool upper_case)
+{
+	const uint8_t default_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	const char *format;
+	if (upper_case)
+		format = "%02X:%02X:%02X:%02X:%02X:%02X";
+	else
+		format = "%02x:%02x:%02x:%02x:%02x:%02x";
+
+	if (!some_mac || len != 6)
+	{
+		some_mac = default_mac;
+		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
+	}
+
+	Serial.printf(format, some_mac[0], some_mac[1], some_mac[2], some_mac[3], some_mac[4], some_mac[5]);
+}
+
 void EasyEspNow::enableTransmit(bool enable)
 {
 }
@@ -213,14 +276,27 @@ bool EasyEspNow::initComms()
 	// Check if the queue was created successfully
 	if (txQueue == NULL)
 	{
-		Serial.println("Failed to create the queue!");
+		ERROR(TAG, "Failed to create TX Queue");
 		// Handle the error, possibly halt or retry queue creation
+		return false;
 	}
 	else
 	{
-		Serial.println("Queue created successfully.");
+		MONITOR(TAG, "Successfully created TX Queue");
 	}
-	xTaskCreateUniversal(easyEspNowTxQueueTask, "send_esp_now", 8 * 1024, NULL, 1, &txTaskHandle, CONFIG_ARDUINO_RUNNING_CORE);
+
+	BaseType_t task_creation_result = xTaskCreateUniversal(easyEspNowTxQueueTask, "send_esp_now", 8 * 1024, NULL, 1, &txTaskHandle, CONFIG_ARDUINO_RUNNING_CORE);
+	if (task_creation_result != pdPASS)
+	{
+		// Task creation failed
+		ERROR(TAG, "TX Task creation failed! Error: %ld", task_creation_result);
+		return false;
+	}
+	else
+	{
+		// Task creation succeeded
+		MONITOR(TAG, "TX Task creation successful");
+	}
 
 	return true;
 }

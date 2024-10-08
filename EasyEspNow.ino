@@ -5,7 +5,8 @@ int total_send = 0;
 
 uint8_t channel = 9;
 uint8_t TEST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFA};
-uint8_t TEST_ADDRESS2[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFB};
+uint8_t TEST_ADDRESS2[] = {0xCD, 0x56, 0x47, 0xFC, 0xAF, 0xB3};
+uint8_t TEST_BAD_MAC[] = {0xAB, 0xFF, 0xCE, 0xFF, 0xAB, 0xFF, 0xCE, 0xFF};
 
 // Function to generate a random MAC address
 void generateRandomMAC(uint8_t *mac)
@@ -94,11 +95,26 @@ void setup()
     easyEspNow.printtest();
     // Serial.println(mesh.getEspNowVersion());
 
+    uint8_t *my_mac;
+    // Try getting MAC before begin()
+    my_mac = easyEspNow.getDeviceMACAddress();
+    if (my_mac)
+        Serial.printf("Success getting my mac: %s\n", easyEspNow.easyMac2Char(my_mac, MAC_ADDR_LEN));
+    else
+        Serial.println("Failed getting My MAC");
+
     WiFi.mode(WIFI_MODE_STA);
 
     Serial.printf("Starting WiFi channel: %d\n", WiFi.channel());
 
     Serial.println(easyEspNow.begin(channel, WIFI_IF_STA));
+
+    // Try getting MAC after begin()
+    my_mac = easyEspNow.getDeviceMACAddress();
+    if (my_mac)
+        Serial.printf("Success getting my mac: %s\n", easyEspNow.easyMac2Char(my_mac, MAC_ADDR_LEN));
+    else
+        Serial.println("Failed getting My MAC");
 
     Serial.println(easyEspNow.getEspNowVersion());
 
@@ -122,6 +138,31 @@ void setup()
     //     Serial.println("Failed to add broadcast peer");
     //     return;
     // }
+
+    /* Be careful when using sizeof(), if you pass a pointer to sizeof, the result
+    gives you the size of the pointer (typically 4 bytes on a 32-bit system or 8 bytes on a 64-bit system).
+    If you do sizeof a fixed array, then it is okay and you will get a correct result */
+    char *testMac;
+    testMac = easyEspNow.easyMac2Char(nullptr);
+    Serial.printf("Mac is: %s\n", testMac);
+    testMac = easyEspNow.easyMac2Char(TEST_BAD_MAC, sizeof(TEST_BAD_MAC));
+    testMac = easyEspNow.easyMac2Char(TEST_ADDRESS2, sizeof(TEST_ADDRESS2));
+    Serial.printf("Mac is: %s\n", testMac);
+    testMac = easyEspNow.easyMac2Char(TEST_ADDRESS2, sizeof(TEST_ADDRESS2), false); // lower case
+    Serial.printf("Mac is: %s\n", testMac);
+
+    easyEspNow.easyPrintMac2Char(nullptr);
+    Serial.println();
+    easyEspNow.easyPrintMac2Char(TEST_BAD_MAC, sizeof(TEST_BAD_MAC));
+    Serial.println();
+    easyEspNow.easyPrintMac2Char(TEST_ADDRESS2, sizeof(TEST_ADDRESS2));
+    Serial.println();
+    easyEspNow.easyPrintMac2Char(TEST_ADDRESS2, sizeof(TEST_ADDRESS2), false); // lower case
+    Serial.println();
+    easyEspNow.easyPrintMac2Char(TEST_ADDRESS, sizeof(TEST_ADDRESS));
+    Serial.println();
+    easyEspNow.easyPrintMac2Char(ESPNOW_BROADCAST_ADDRESS, sizeof(ESPNOW_BROADCAST_ADDRESS), false);
+    Serial.println();
 
     Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
 

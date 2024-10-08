@@ -86,6 +86,25 @@ public:
 	void onDataSent(frame_sent_data frame_sent_cb) override;
 	uint8_t getAddressLength() override { return MAC_ADDR_LEN; }
 	uint8_t getMaxMessageLength() override { return MAX_DATA_LENGTH; }
+
+	/**
+	 * @brief Get MAC address of this device.
+	 * @note The mac address will be dependent to the chosen WiFi interface (`wifi_interface_t`).
+	 *
+	 *  - `WIFI_IF_STA`
+	 *
+	 *  - `WIFI_IF_AP`
+	 * @return
+	 * 	- `nullptr` if MAC address has not been able to be set during the call of begin(...) function,
+	 *
+	 *  - `uint8_t *` pointer to the MAC address location in the memory
+	 */
+	uint8_t *getDeviceMACAddress();
+
+	char *easyMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
+
+	void easyPrintMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
+
 	void enableTransmit(bool enable) override;
 
 	bool addPeer(const uint8_t *peer_addr_to_add);
@@ -157,6 +176,7 @@ public:
 	}
 
 protected:
+	uint8_t my_mac_address[MAC_ADDR_LEN] = {0};
 	TaskHandle_t txTaskHandle;
 	QueueHandle_t txQueue;
 
