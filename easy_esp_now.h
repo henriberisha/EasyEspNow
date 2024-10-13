@@ -66,7 +66,7 @@ typedef struct
 class EasyEspNow : public CommsHalInterface
 {
 public:
-	bool begin(uint8_t channel, wifi_interface_t phy_interface) override;
+	bool begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size = 1, bool synch_send = true) override;
 	void stop() override;
 	int32_t getEspNowVersion();
 	uint8_t getPrimaryChannel() override { return this->wifi_primary_channel; }
@@ -79,6 +79,18 @@ public:
 	{
 		return send(ESPNOW_BROADCAST_ADDRESS, payload, payload_len);
 	}
+
+	/**
+	 * @brief Function to check readiness to send data in the TX Queue
+	 * @note Can be ready to send data to queue whenever there is space in the queue.
+	 * @return
+	 * 	- `true` if TX queue i not full
+	 *
+	 *  - `false` if TX queue is full and there is no more space for new TX items
+	 */
+	bool readyToSendData();
+
+	void waitForQueueToBeEmptied(QueueHandle_t q_handle);
 
 	void sendTest(int data);
 
@@ -177,12 +189,16 @@ public:
 
 protected:
 	uint8_t my_mac_address[MAC_ADDR_LEN] = {0};
+
+	int tx_queue_size;
+	bool synchronous_send;
+	bool wait_for_send_confirmation;
+
 	TaskHandle_t txTaskHandle;
 	QueueHandle_t txQueue;
 
 	TaskHandle_t txTask_handle; // this is for testing only, will be deleted later
 	QueueHandle_t tx_queue;		// this is for testing only, will be deleted later
-	int tx_queue_size = 5;
 
 	int success_process = 0;
 	int dropped = 0;

@@ -80,7 +80,7 @@ public:
      * @param peerType Role that peer plays into the system, node or gateway.
      * @return Returns `true` if the communication subsystem was successfully initialized, `false` otherwise
      */
-    virtual bool begin(uint8_t channel, wifi_interface_t phy_interface) = 0;
+    virtual bool begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size, bool synch_send) = 0;
 
     /**
      * @brief Terminates communication and closes all connectrions

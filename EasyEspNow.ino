@@ -107,7 +107,7 @@ void setup()
 
     Serial.printf("Starting WiFi channel: %d\n", WiFi.channel());
 
-    Serial.println(easyEspNow.begin(channel, WIFI_IF_STA));
+    Serial.println(easyEspNow.begin(channel, WIFI_IF_STA, 7, true));
 
     // Try getting MAC after begin()
     my_mac = easyEspNow.getDeviceMACAddress();
@@ -250,10 +250,11 @@ void loop()
     String message = "Hello, world! " + String(random());
     // Even to send a broadcast, the broadcast address needs to be added as a peer, o/w it will fail
     // ret = esp_now_send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
-    // Serial.println(esp_err_to_name(ret));
+    ret = esp_now_send(nullptr, (uint8_t *)message.c_str(), message.length());
+    Serial.println(esp_err_to_name(ret));
 
-    easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
-    vTaskDelay(pdMS_TO_TICKS(80));
+    // easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
+    vTaskDelay(pdMS_TO_TICKS(2000));
     // delay(1000);
     //  Your code here
 }

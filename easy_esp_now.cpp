@@ -4,7 +4,7 @@ EasyEspNow easyEspNow;
 
 constexpr auto TAG = "EASY_ESP_NOW";
 
-bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface)
+bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size, bool synch_send)
 {
 	wifi_mode_t mode;
 	err = esp_wifi_get_mode(&mode);
@@ -67,6 +67,15 @@ bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface)
 	}
 
 	// initcomms here
+
+	if (tx_q_size < 1)
+	{
+		ERROR(TAG, "TX Queue size is set to invalid number: %d. Must be greater than 0", tx_q_size);
+		return false;
+	}
+
+	this->tx_queue_size = tx_q_size;
+	this->synchronous_send = synch_send;
 
 	if (initComms() == false)
 		return false;
@@ -171,6 +180,23 @@ comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *pa
 
 // void EasyEspNow::onDataSent(comms_hal_sent_data sentResult){}
 
+bool EasyEspNow::readyToSendData()
+{
+	return uxQueueMessagesWaiting(txQueue) < tx_queue_size;
+}
+
+void EasyEspNow::waitForQueueToBeEmptied(QueueHandle_t q_handle)
+{
+	if (q_handle == NULL)
+		return;
+
+	while (uxQueueMessagesWaiting(q_handle) > 0)
+	{
+		vTaskDelay(pdMS_TO_TICKS(10));
+	}
+	return;
+}
+
 uint8_t *EasyEspNow::getDeviceMACAddress()
 {
 	uint8_t zero_mac[MAC_ADDR_LEN] = {0};
@@ -269,6 +295,9 @@ bool EasyEspNow::initComms()
 		return false;
 	}
 
+	if (this->synchronous_send == true)
+		tx_queue_size = 1; // may be redundant but set TX Queue size to 1 when synchronous send mode
+
 	// tx_queue = xQueueCreate(tx_queue_size, sizeof(int));
 	// xTaskCreateUniversal(processTxQueueTask, "espnow_loop", 8 * 1024, NULL, 1, &txTask_handle, CONFIG_ARDUINO_RUNNING_CORE);
 
@@ -297,6 +326,8 @@ bool EasyEspNow::initComms()
 		// Task creation succeeded
 		MONITOR(TAG, "TX Task creation successful");
 	}
+
+	MONITOR(TAG, "TX Synchronous Send mode is set to: [ %s ]. TX Queue Size is set to: [ %d ]", this->synchronous_send ? "TRUE" : "FALSE", this->tx_queue_size);
 
 	return true;
 }
