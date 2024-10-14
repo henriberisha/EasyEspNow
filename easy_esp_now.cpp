@@ -138,33 +138,54 @@ int32_t EasyEspNow::getEspNowVersion()
 
 comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len)
 {
-	if (!dstAddress || !payload || !payload_len)
+	if (!payload || !payload_len)
 	{
 		ERROR(TAG, "Parameters Error");
 		return COMMS_SEND_PARAM_ERROR;
 	}
 
-	if (payload_len > MAX_DATA_LENGTH)
+	if (payload_len < 1 || payload_len > MAX_DATA_LENGTH)
 	{
-		ERROR(TAG, "Length: %d. Max payload length must be: %d", payload_len, MAX_DATA_LENGTH);
+		ERROR(TAG, "Length: %d. Payload length must be between [Min, Max]: [%d ... %d] bytes", payload_len, 1, MAX_DATA_LENGTH);
 		return COMMS_SEND_PAYLOAD_LENGTH_ERROR;
 	}
 
 	int enqueued_tx_messages = uxQueueMessagesWaiting(txQueue);
-	if (enqueued_tx_messages == tx_queue_size)
+	DEBUG(TAG, "Queue status (Enqueued | Capacity) -> %d | %d\n", enqueued_tx_messages, easyEspNow.tx_queue_size);
+
+	// in synch mode wait here until the message in the queue is removed and sent
+	if (this->synchronous_send)
 	{
-		WARNING(TAG, "TX Queue full. Can not add message to queue. Dropping message...");
-		return COMMS_SEND_QUEUE_FULL_ERROR;
+		while (uxQueueMessagesWaiting(txQueue) == tx_queue_size)
+		{
+			WARNING(TAG, "Synchronous send mode. Waiting for free space in TX Queue");
+			taskYIELD();
+		}
+	}
+	else
+	{
+		if (enqueued_tx_messages == tx_queue_size)
+		{
+			WARNING(TAG, "TX Queue full. Can not add message to queue. Dropping message...");
+			return COMMS_SEND_QUEUE_FULL_ERROR;
+		}
 	}
 
 	tx_queue_item_t item_to_enqueue;
-	memcpy(item_to_enqueue.dst_address, dstAddress, ESP_NOW_ETH_ALEN);
+
+	// in case dst address in null, put [0x00, 0x00, 0x00, 0x00, 0x00, 0x00] as destination
+	// this will tell to send the message to all the peers in the list
+	if (!dstAddress)
+		memcpy(item_to_enqueue.dst_address, zero_mac, ESP_NOW_ETH_ALEN);
+	else
+		memcpy(item_to_enqueue.dst_address, dstAddress, ESP_NOW_ETH_ALEN);
+
 	memcpy(item_to_enqueue.payload_data, payload, payload_len);
 	item_to_enqueue.payload_len = payload_len;
 
 	// portMAX_DELAY -> will wait indefinitely
 	// pdMS_TO_TICKS -> will have a timeout
-	if (xQueueSend(txQueue, &item_to_enqueue, pdMS_TO_TICKS(20)) == pdTRUE)
+	if (xQueueSend(txQueue, &item_to_enqueue, pdMS_TO_TICKS(10)) == pdTRUE)
 	{
 		MONITOR(TAG, "Success to enqueue TX message");
 		return COMMS_SEND_OK;
@@ -185,12 +206,13 @@ bool EasyEspNow::readyToSendData()
 	return uxQueueMessagesWaiting(txQueue) < tx_queue_size;
 }
 
-void EasyEspNow::waitForQueueToBeEmptied(QueueHandle_t q_handle)
+void EasyEspNow::waitForTXQueueToBeEmptied()
 {
-	if (q_handle == NULL)
+	if (easyEspNow.txQueue == NULL)
 		return;
 
-	while (uxQueueMessagesWaiting(q_handle) > 0)
+	WARNING(TAG, "Waiting for TX Queue to be emptied...");
+	while (uxQueueMessagesWaiting(easyEspNow.txQueue) > 0)
 	{
 		vTaskDelay(pdMS_TO_TICKS(10));
 	}
@@ -199,8 +221,6 @@ void EasyEspNow::waitForQueueToBeEmptied(QueueHandle_t q_handle)
 
 uint8_t *EasyEspNow::getDeviceMACAddress()
 {
-	uint8_t zero_mac[MAC_ADDR_LEN] = {0};
-
 	if (memcmp(my_mac_address, zero_mac, MAC_ADDR_LEN) == 0)
 	{
 		WARNING(TAG, "This device's MAC is not avaiable");
@@ -598,11 +618,28 @@ void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
 	while (true)
 	{
 		// Wait for data from the queue
-		if (xQueueReceive(easyEspNow.txQueue, &item_to_dequeue, portMAX_DELAY) == pdTRUE)
+		if (xQueueReceive(easyEspNow.txQueue, &item_to_dequeue, pdMS_TO_TICKS(10)) == pdTRUE)
 		{
-			easyEspNow.err = esp_now_send(item_to_dequeue.dst_address, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
-			Serial.println(esp_err_to_name(easyEspNow.err));
-			// vTaskDelay(pdMS_TO_TICKS(100));
+			if (memcmp(item_to_dequeue.dst_address, easyEspNow.zero_mac, MAC_ADDR_LEN) == 0)
+			{
+				WARNING(TAG, "Destination address is NULL, send data to all of the peers that are added to the peer list");
+				easyEspNow.err = esp_now_send(NULL, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
+			}
+			else
+				easyEspNow.err = esp_now_send(item_to_dequeue.dst_address, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
+
+			if (easyEspNow.err == ESP_OK)
+			{
+				INFO(TAG, "Succeed in calling \"esp_now_send(...)\"");
+			}
+			else
+			{
+				ERROR(TAG, "Failed in calling \"esp_now_send(...)\" with error: %s", esp_err_to_name(easyEspNow.err));
+			}
+
+			// add some delay to not overwhelm 'esp_now_send' method
+			// otherwise may get error: 'ESP_ERR_ESPNOW_NO_MEM'
+			vTaskDelay(pdMS_TO_TICKS(10));
 		}
 	}
 }

@@ -3,7 +3,7 @@
 
 int total_send = 0;
 
-uint8_t channel = 9;
+uint8_t channel = 7;
 uint8_t TEST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFA};
 uint8_t TEST_ADDRESS2[] = {0xCD, 0x56, 0x47, 0xFC, 0xAF, 0xB3};
 uint8_t TEST_BAD_MAC[] = {0xAB, 0xFF, 0xCE, 0xFF, 0xAB, 0xFF, 0xCE, 0xFF};
@@ -71,13 +71,11 @@ void OnFrameSent_cb(const uint8_t *mac_addr, uint8_t status)
 {
     // Delivery success does not neccessarily that the other end received the message. Just means that this sender was able to transmit the message.
     // In order to have a proper delivery assurance, type of ACK system needs to be build.
-    Serial.print("\r\nLast Packet Send Status:\t");
-    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
     char mac_char[18] = {0};
     sprintf(mac_char, "%02X:%02X:%02X:%02X:%02X:%02X",
             mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 
-    Serial.println(mac_char);
+    Serial.printf("Last Packet Send Status: %s to destination %s\n\n", status == ESP_NOW_SEND_SUCCESS ? "Delivery SUCCESS" : "Delivery FAIL", mac_char);
 }
 
 int CURRENT_LOG_LEVEL = LOG_VERBOSE; // need to set the log level, otherwise will have issues
@@ -107,7 +105,7 @@ void setup()
 
     Serial.printf("Starting WiFi channel: %d\n", WiFi.channel());
 
-    Serial.println(easyEspNow.begin(channel, WIFI_IF_STA, 7, true));
+    Serial.println(easyEspNow.begin(channel, WIFI_IF_STA, 7, false));
 
     // Try getting MAC after begin()
     my_mac = easyEspNow.getDeviceMACAddress();
@@ -250,11 +248,13 @@ void loop()
     String message = "Hello, world! " + String(random());
     // Even to send a broadcast, the broadcast address needs to be added as a peer, o/w it will fail
     // ret = esp_now_send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
-    ret = esp_now_send(nullptr, (uint8_t *)message.c_str(), message.length());
-    Serial.println(esp_err_to_name(ret));
+    // ret = esp_now_send(nullptr, (uint8_t *)message.c_str(), message.length());
+    // Serial.println(esp_err_to_name(ret));
 
-    // easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    // delay(1000);
-    //  Your code here
+    if (!easyEspNow.readyToSendData())
+        easyEspNow.waitForTXQueueToBeEmptied();
+    easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
+    // vTaskDelay(pdMS_TO_TICKS(2000));
+    //  delay(1000);
+    //   Your code here
 }

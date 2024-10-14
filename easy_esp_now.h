@@ -90,7 +90,7 @@ public:
 	 */
 	bool readyToSendData();
 
-	void waitForQueueToBeEmptied(QueueHandle_t q_handle);
+	void waitForTXQueueToBeEmptied();
 
 	void sendTest(int data);
 
@@ -188,6 +188,7 @@ public:
 	}
 
 protected:
+	uint8_t zero_mac[MAC_ADDR_LEN] = {0};
 	uint8_t my_mac_address[MAC_ADDR_LEN] = {0};
 
 	int tx_queue_size;
