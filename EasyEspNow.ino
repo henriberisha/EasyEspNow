@@ -253,8 +253,8 @@ void loop()
 
     if (!easyEspNow.readyToSendData())
         easyEspNow.waitForTXQueueToBeEmptied();
-    easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
+    easy_send_error_t error = easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)message.c_str(), message.length());
+    Serial.printf("Last send return error value: %s\n", easyEspNow.easySendErrorToName(error));
     // vTaskDelay(pdMS_TO_TICKS(2000));
-    //  delay(1000);
-    //   Your code here
+    // delay(1000);
 }

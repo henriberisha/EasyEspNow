@@ -4,6 +4,27 @@ EasyEspNow easyEspNow;
 
 constexpr auto TAG = "EASY_ESP_NOW";
 
+const char *EasyEspNow::easySendErrorToName(easy_send_error_t send_error)
+{
+	switch (send_error)
+	{
+	case EASY_SEND_OK:
+		return "EASY_SEND_OK";
+	case EASY_SEND_PARAM_ERROR:
+		return "EASY_SEND_PARAM_ERROR";
+	case EASY_SEND_PAYLOAD_LENGTH_ERROR:
+		return "EASY_SEND_PAYLOAD_LENGTH_ERROR";
+	case EASY_SEND_QUEUE_FULL_ERROR:
+		return "EASY_SEND_QUEUE_FULL_ERROR";
+	case EASY_SEND_MSG_ENQUEUE_ERROR:
+		return "EASY_SEND_MSG_ENQUEUE_ERROR";
+	case EASY_SEND_CONFIRM_ERROR:
+		return "EASY_SEND_CONFIRM_ERROR";
+	default:
+		return "UNKNOWN_ERROR";
+	}
+}
+
 bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size, bool synch_send)
 {
 	wifi_mode_t mode;
@@ -115,9 +136,13 @@ bool EasyEspNow::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
 
 void EasyEspNow::stop()
 {
+	MONITOR(TAG, "----------> STOPPING ESP-NOW");
+	vTaskDelete(txTaskHandle);
+	vQueueDelete(txQueue);
 	esp_now_unregister_recv_cb();
 	esp_now_unregister_send_cb();
 	esp_now_deinit();
+	MONITOR(TAG, "<---------- ESP-NOW STOPPED");
 }
 
 int32_t EasyEspNow::getEspNowVersion()
@@ -136,18 +161,18 @@ int32_t EasyEspNow::getEspNowVersion()
 	}
 }
 
-comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len)
+easy_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len)
 {
 	if (!payload || !payload_len)
 	{
 		ERROR(TAG, "Parameters Error");
-		return COMMS_SEND_PARAM_ERROR;
+		return EASY_SEND_PARAM_ERROR;
 	}
 
 	if (payload_len < 1 || payload_len > MAX_DATA_LENGTH)
 	{
 		ERROR(TAG, "Length: %d. Payload length must be between [Min, Max]: [%d ... %d] bytes", payload_len, 1, MAX_DATA_LENGTH);
-		return COMMS_SEND_PAYLOAD_LENGTH_ERROR;
+		return EASY_SEND_PAYLOAD_LENGTH_ERROR;
 	}
 
 	int enqueued_tx_messages = uxQueueMessagesWaiting(txQueue);
@@ -167,7 +192,7 @@ comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *pa
 		if (enqueued_tx_messages == tx_queue_size)
 		{
 			WARNING(TAG, "TX Queue full. Can not add message to queue. Dropping message...");
-			return COMMS_SEND_QUEUE_FULL_ERROR;
+			return EASY_SEND_QUEUE_FULL_ERROR;
 		}
 	}
 
@@ -188,18 +213,14 @@ comms_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *pa
 	if (xQueueSend(txQueue, &item_to_enqueue, pdMS_TO_TICKS(10)) == pdTRUE)
 	{
 		MONITOR(TAG, "Success to enqueue TX message");
-		return COMMS_SEND_OK;
+		return EASY_SEND_OK;
 	}
 	else
 	{
 		WARNING(TAG, "Failed to enqueue item");
-		return COMMS_SEND_MSG_ENQUEUE_ERROR;
+		return EASY_SEND_MSG_ENQUEUE_ERROR;
 	}
 }
-
-// void EasyEspNow::onDataRcvd(comms_hal_rcvd_data dataRcvd){}
-
-// void EasyEspNow::onDataSent(comms_hal_sent_data sentResult){}
 
 bool EasyEspNow::readyToSendData()
 {
@@ -209,7 +230,10 @@ bool EasyEspNow::readyToSendData()
 void EasyEspNow::waitForTXQueueToBeEmptied()
 {
 	if (easyEspNow.txQueue == NULL)
+	{
+		WARNING(TAG, "TX Queue can't be emptied because it has not been initialized...");
 		return;
+	}
 
 	WARNING(TAG, "Waiting for TX Queue to be emptied...");
 	while (uxQueueMessagesWaiting(easyEspNow.txQueue) > 0)
@@ -265,6 +289,7 @@ void EasyEspNow::easyPrintMac2Char(const uint8_t *some_mac, size_t len, bool upp
 	{
 		some_mac = default_mac;
 		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
+		return;
 	}
 
 	Serial.printf(format, some_mac[0], some_mac[1], some_mac[2], some_mac[3], some_mac[4], some_mac[5]);
@@ -630,7 +655,7 @@ void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
 
 			if (easyEspNow.err == ESP_OK)
 			{
-				INFO(TAG, "Succeed in calling \"esp_now_send(...)\"");
+				DEBUG(TAG, "Succeed in calling \"esp_now_send(...)\"");
 			}
 			else
 			{
@@ -639,7 +664,8 @@ void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
 
 			// add some delay to not overwhelm 'esp_now_send' method
 			// otherwise may get error: 'ESP_ERR_ESPNOW_NO_MEM'
-			vTaskDelay(pdMS_TO_TICKS(10));
+			// during debug set this higher than 10 to simulate delay
+			vTaskDelay(pdMS_TO_TICKS(100));
 		}
 	}
 }

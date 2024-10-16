@@ -38,18 +38,15 @@ typedef struct
 typedef std::function<void(const uint8_t *src_mac, const uint8_t *data, int data_len, espnow_frame_recv_info_t *esp_now_frame)> frame_rcvd_data;
 typedef std::function<void(const uint8_t *dst_addr, uint8_t status)> frame_sent_data;
 
-// typedef std::function<void(uint8_t *address, uint8_t *data, uint8_t len, signed int rssi, bool broadcast)> comms_hal_rcvd_data;
-// typedef std::function<void(uint8_t *address, uint8_t status)> comms_hal_sent_data;
-
 typedef enum
 {
-    COMMS_SEND_OK = 0,                    /**< Data was enqued for sending successfully */
-    COMMS_SEND_PARAM_ERROR = -1,          /**< Data was not sent due to parameter call error */
-    COMMS_SEND_PAYLOAD_LENGTH_ERROR = -2, /**< Data was not sent due to payload too long */
-    COMMS_SEND_QUEUE_FULL_ERROR = -3,     /**< Data was not sent due to queue full */
-    COMMS_SEND_MSG_ENQUEUE_ERROR = -4,    /**< Data was not sent due to message queue push error */
-    COMMS_SEND_CONFIRM_ERROR = -5,        /**< Data was not sent due to confirmation error (only for synchronous send) */
-} comms_send_error_t;
+    EASY_SEND_OK = 0,                    /**< Data was enqued for sending successfully */
+    EASY_SEND_PARAM_ERROR = -1,          /**< Data was not sent due to parameter call error */
+    EASY_SEND_PAYLOAD_LENGTH_ERROR = -2, /**< Data was not sent due to payload too long */
+    EASY_SEND_QUEUE_FULL_ERROR = -3,     /**< Data was not sent due to queue full */
+    EASY_SEND_MSG_ENQUEUE_ERROR = -4,    /**< Data was not sent due to message queue push error */
+    EASY_SEND_CONFIRM_ERROR = -5,        /**< Data was not sent due to confirmation error (only for synchronous send) */
+} easy_send_error_t;
 
 class CommsHalInterface
 {
@@ -61,10 +58,6 @@ protected:
     uint8_t wifi_primary_channel; ///< @brief Comms channel to be used
     wifi_second_chan_t wifi_secondary_channel;
 
-    int test_var;
-
-    // comms_hal_rcvd_data dataRcvd = 0;   ///< @brief Pointer to a function to be called on every received message
-    // comms_hal_sent_data sentResult = 0; ///< @brief Pointer to a function to be called to notify last sending status
     frame_sent_data dataSent = nullptr;
     frame_rcvd_data dataReceived = nullptr;
 
@@ -73,13 +66,6 @@ protected:
 public:
     CommsHalInterface() {}
 
-    /**
-     * @brief Setup communication environment and establish the connection from node to gateway
-     * @param gateway Address of gateway. It may be `NULL` in case this is used in the own gateway
-     * @param channel Establishes a channel for the communication. Its use depends on actual communications subsystem
-     * @param peerType Role that peer plays into the system, node or gateway.
-     * @return Returns `true` if the communication subsystem was successfully initialized, `false` otherwise
-     */
     virtual bool begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size, bool synch_send) = 0;
 
     /**
@@ -91,8 +77,6 @@ public:
 
     virtual wifi_second_chan_t getSecondaryChannel() = 0;
 
-    virtual bool setChannel(uint8_t primary, wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE) = 0;
-
     /**
      * @brief Sends data to the other peer
      * @param da Destination address to send the message to
@@ -100,7 +84,7 @@ public:
      * @param len Data length in number of bytes
      * @return Returns sending status. 0 for success, any other value to indicate an error.
      */
-    virtual comms_send_error_t send(const uint8_t *da, const uint8_t *data, size_t len) = 0;
+    virtual easy_send_error_t send(const uint8_t *da, const uint8_t *data, size_t len) = 0;
 
     /**
      * @brief Attach a callback function to be run on every received message

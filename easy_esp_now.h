@@ -22,21 +22,6 @@ static const uint8_t MAX_TOTAL_PEER_NUM = ESP_NOW_MAX_TOTAL_PEER_NUM;
 static const uint8_t MAX_ENCRYPT_PEER_NUM = ESP_NOW_MAX_ENCRYPT_PEER_NUM;
 static const uint8_t MAX_DATA_LENGTH = ESP_NOW_MAX_DATA_LEN;
 
-const wifi_promiscuous_filter_t filter_mgmt = {
-	.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT}; // this filter MGMT frames
-
-/*
-#define STATION_MODE true
-#if STATION_MODE
-wifi_mode_t _mode = WIFI_MODE_STA;
-wifi_interface_t _interface = WIFI_IF_STA;
-#else
-wifi_mode_t _mode = WIFI_MODE_AP;
-wifi_interface_t _interface = WIFI_IF_AP;
-#endif
-
-*/
-
 typedef struct
 {
 	uint8_t mac[MAC_ADDR_LEN];
@@ -66,23 +51,28 @@ typedef struct
 class EasyEspNow : public CommsHalInterface
 {
 public:
+	const char *easySendErrorToName(easy_send_error_t send_error);
+
 	bool begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size = 1, bool synch_send = true) override;
+
 	void stop() override;
+
 	int32_t getEspNowVersion();
+
 	uint8_t getPrimaryChannel() override { return this->wifi_primary_channel; }
+
 	wifi_second_chan_t getSecondaryChannel() { return this->wifi_secondary_channel; }
 
-	bool setChannel(uint8_t primary, wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE) override;
+	easy_send_error_t send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len) override;
 
-	comms_send_error_t send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len) override;
-	comms_send_error_t sendBroadcast(const uint8_t *payload, size_t payload_len)
+	easy_send_error_t sendBroadcast(const uint8_t *payload, size_t payload_len)
 	{
 		return send(ESPNOW_BROADCAST_ADDRESS, payload, payload_len);
 	}
 
 	/**
 	 * @brief Function to check readiness to send data in the TX Queue
-	 * @note Can be ready to send data to queue whenever there is space in the queue.
+	 * @note Can be ready to send data to queue whenever there is space in the queue. Good to use when we do not want to drop packkets. Can be used in conjunction with `waitForTXQueueToBeEmptied()`
 	 * @return
 	 * 	- `true` if TX queue i not full
 	 *
@@ -90,13 +80,20 @@ public:
 	 */
 	bool readyToSendData();
 
+	/**
+	 * @brief Function to block until TX Queue has been exhausted
+	 * @note This is good to use when we do not want to dropp packet, can be used in conjunction with `readyToSendData()`
+	 */
 	void waitForTXQueueToBeEmptied();
 
 	void sendTest(int data);
 
 	void onDataReceived(frame_rcvd_data frame_rcvd_cb) override;
+
 	void onDataSent(frame_sent_data frame_sent_cb) override;
+
 	uint8_t getAddressLength() override { return MAC_ADDR_LEN; }
+
 	uint8_t getMaxMessageLength() override { return MAX_DATA_LENGTH; }
 
 	/**
@@ -205,8 +202,13 @@ protected:
 	int dropped = 0;
 
 	peer_list_t peer_list;
+
 	bool initComms() override;
+
+	bool setChannel(uint8_t primary, wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE);
+
 	static void rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len);
+
 	static void tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status);
 
 	static void easyEspNowTxQueueTask(void *pvParameters);
