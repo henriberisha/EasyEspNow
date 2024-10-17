@@ -25,6 +25,38 @@ const char *EasyEspNow::easySendErrorToName(easy_send_error_t send_error)
 	}
 }
 
+wifi_interface_t EasyEspNow::autoselect_if_from_mode(wifi_mode_t mode, bool apstaMOD_to_apIF)
+{
+	if (mode == WIFI_MODE_NULL || mode == WIFI_MODE_MAX)
+	{
+		WARNING(TAG, "Useless WiFi modes, defaulting WiFi interface to: WIFI_IF_STA");
+		return WIFI_IF_STA;
+	}
+	else if (mode == WIFI_MODE_STA)
+	{
+		INFO(TAG, "WiFi mode chosen: WIFI_MODE_STA  ==>  Auto Selecting WiFi interface: WIFI_IF_STA");
+		return WIFI_IF_STA;
+	}
+	else if (mode == WIFI_MODE_AP)
+	{
+		INFO(TAG, "WiFi mode chosen: WIFI_MODE_AP  ==>  Auto Selecting WiFi interface: WIFI_IF_AP");
+		return WIFI_IF_AP;
+	}
+	else if (mode == WIFI_MODE_APSTA)
+	{
+		if (apstaMOD_to_apIF == true)
+		{
+			INFO(TAG, "WiFi mode chosen: WIFI_MODE_APSTA & apstaMOD_to_apIF = true  ==>  Auto Selecting WiFi interface: WIFI_IF_AP");
+			return WIFI_IF_AP;
+		}
+		else if (apstaMOD_to_apIF == false)
+		{
+			INFO(TAG, "WiFi mode chosen: WIFI_MODE_APSTA & apstaMOD_to_apIF = false  ==>  Auto Selecting WiFi interface: WIFI_IF_STA");
+			return WIFI_IF_STA;
+		}
+	}
+}
+
 bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size, bool synch_send)
 {
 	wifi_mode_t mode;
