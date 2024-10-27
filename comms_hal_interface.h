@@ -83,56 +83,22 @@ public:
 
     virtual bool begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size, bool synch_send) = 0;
 
-    /**
-     * @brief Terminates communication and closes all connectrions
-     */
     virtual void stop() = 0;
 
     virtual uint8_t getPrimaryChannel() = 0;
 
     virtual wifi_second_chan_t getSecondaryChannel() = 0;
 
-    /**
-     * @brief Sends data to the other peer
-     * @param da Destination address to send the message to
-     * @param data Data buffer that contain the message to be sent
-     * @param len Data length in number of bytes
-     * @return Returns sending status. 0 for success, any other value to indicate an error.
-     */
     virtual easy_send_error_t send(const uint8_t *da, const uint8_t *data, size_t len) = 0;
-
-    /**
-     * @brief Attach a callback function to be run on every received message
-     * @param dataRcvd Pointer to the callback function
-     */
-    // virtual void onDataRcvd(comms_hal_rcvd_data dataRcvd) = 0;
-
-    /**
-     * @brief Attach a callback function to be run after sending a message to receive its status
-     * @param dataRcvd Pointer to the callback function
-     */
-    // virtual void onDataSent(comms_hal_sent_data dataSent) = 0;
 
     virtual void onDataReceived(frame_rcvd_data frame_rcvd_cb) = 0;
 
     virtual void onDataSent(frame_sent_data frame_sent_cb) = 0;
 
-    /**
-     * @brief Get address length that a specific communication subsystem uses
-     * @return Returns number of bytes that is used to represent an address
-     */
     virtual uint8_t getAddressLength() = 0;
 
-    /**
-     * @brief Get max message length for a specific communication subsystems
-     * @return Returns number of bytes of longer supported message
-     */
     virtual uint8_t getMaxMessageLength() = 0;
 
-    /**
-     * @brief Enables or disables transmission of queued messages. Used to disable communication during wifi scan
-     * @param enable `true` to enable transmission, `false` to disable it
-     */
     virtual void enableTXTask(bool enable) = 0;
 };
 

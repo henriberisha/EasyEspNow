@@ -477,7 +477,7 @@ char *EasyEspNow::easyMac2Char(const uint8_t *some_mac, size_t len, bool upper_c
 	if (!some_mac || len != 6)
 	{
 		some_mac = default_mac;
-		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
+		// WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
 	}
 
 	static char mac_2_char[18] = {0};
@@ -498,7 +498,7 @@ void EasyEspNow::easyPrintMac2Char(const uint8_t *some_mac, size_t len, bool upp
 	if (!some_mac || len != 6)
 	{
 		some_mac = default_mac;
-		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
+		// WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
 		return;
 	}
 
@@ -688,7 +688,7 @@ void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
 		{
 			if (memcmp(item_to_dequeue.dst_address, easyEspNow.zero_mac, MAC_ADDR_LEN) == 0)
 			{
-				WARNING(TAG, "Destination address is NULL, send data to all of the peers that are added to the peer list");
+				WARNING(TAG, "Destination address is NULL, send data to all unicast peers that are added to the peer list");
 				easyEspNow.err = esp_now_send(NULL, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
 			}
 			else

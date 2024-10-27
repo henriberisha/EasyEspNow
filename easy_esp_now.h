@@ -53,6 +53,15 @@ class EasyEspNow : public CommsHalInterface
 public:
 	/* ==========> Easy ESP-NOW Core Functions <========== */
 
+	/**
+	 * @brief begins and initiates ESP-NOW environment, by setting the WiFi channel, interface, TX queue size
+	 * @param channel WiFi channel in which the communication will happen
+	 * @param phy_interface WiFi network interface.
+	 * @param tx_q_size Size of TX queue that holds outgoing messages
+	 * @param synch_send Synchronous send enabled by default, send message to the queue after the previous message has been sent.
+	 * Makes it more reliable against dropping messages
+	 * @return `true` if success, `false` if some error ocurred
+	 */
 	bool begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size = 1, bool synch_send = true) override;
 
 	/**
@@ -61,13 +70,34 @@ public:
 	 */
 	void stop() override;
 
+	/**
+	 * @brief Sends data to TX queue, to further be sent to the destination peer
+	 * @param dstAddress Destination address of peer to send the data to
+	 * @param payload Data buffer that contain the message to be sent
+	 * @param payload_len Data length in number of bytes
+	 * @return Returns sending status. 0 for success, any other value to indicate an error.
+	 * @attention If dstAddress is `NULL` or `nullptr`, send data to all unicast peers that are added to the peer list
+	 * @note When sending to `Broadcast` address, status will always be delivered,
+	 * when sending to unicast peers, the message can be sent but it will be delivered only when the peer
+	 * sends an `ACK` frame back to confirm that message was delivered
+	 */
 	easy_send_error_t send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len) override;
 
+	/**
+	 * @brief Makes a call to `send()` function and uses the Broadcast address as destination
+	 * @param payload Data buffer that contain the message to be sent
+	 * @param payload_len Data length in number of bytes
+	 * @note User should not be worried to provide the destination address
+	 */
 	easy_send_error_t sendBroadcast(const uint8_t *payload, size_t payload_len)
 	{
 		return send(ESPNOW_BROADCAST_ADDRESS, payload, payload_len);
 	}
 
+	/**
+	 * @brief Enables or disables transmission of queued messages by resuming or suspending the TX task
+	 * @param enable `true` to resume TX task, `false` to suspend TX task
+	 */
 	void enableTXTask(bool enable) override;
 
 	/**
@@ -88,21 +118,31 @@ public:
 
 	void sendTest(int data);
 
+	/**
+	 * @brief Attach a callback function to be run on every received message
+	 * @param frame_rcvd_cb Pointer to the callback function
+	 */
 	void onDataReceived(frame_rcvd_data frame_rcvd_cb) override;
 
+	/**
+	 * @brief Attach a callback function to be run after sending a message
+	 * @param frame_sent_cb Pointer to the callback function
+	 */
 	void onDataSent(frame_sent_data frame_sent_cb) override;
 
 	/* ==========> Peer Management Functions <========== */
 
+	/**
+	 * @brief Adds peer with provided MAC address
+	 * @param peer_addr_to_add Peer to add
+	 * @return `true` if success adding peer, `false` if failed adding peer
+	 */
 	bool addPeer(const uint8_t *peer_addr_to_add);
 
 	/**
 	 * @brief Deletes peer with provided MAC address
 	 * @param peer_addr_to_delete Peer to delete
-	 * @return
-	 * 	- `true` if success deleting peer
-	 *
-	 *  - `false` if failed deleting peer
+	 * @return `true` if success deleting peer, `false` if failed deleting peer
 	 */
 	bool deletePeer(const uint8_t *peer_addr_to_delete); // this should delete the peer given by the mac
 
@@ -187,8 +227,21 @@ public:
 	 */
 	wifi_interface_t autoselect_if_from_mode(wifi_mode_t mode, bool apstaMOD_to_apIF = true);
 
+	/**
+	 * @brief converts MAC to a char array
+	 * @param some_mac MAC we want to convert as uint8_t * array
+	 * @param len MAC address length, should be 6
+	 * @param upper_case `true` for upper case, `false` for lower case
+	 * @return MAC as a char array
+	 */
 	char *easyMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
 
+	/**
+	 * @brief print MAC
+	 * @param some_mac MAC we want to print
+	 * @param len MAC address length, should be 6
+	 * @param upper_case `true` for upper case, `false` for lower case
+	 */
 	void easyPrintMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
 
 	/**
@@ -215,14 +268,14 @@ public:
 	/**
 	 * @brief Get MAC address length. It will be 6
 	 * @note MAC address has 6 octets
-	 * @return MAC_ADDR_LEN
+	 * @return MAC_ADDR_LEN - number of bytes that is used to represent an address
 	 */
 	uint8_t getAddressLength() override { return MAC_ADDR_LEN; }
 
 	/**
 	 * @brief Get maximum data length that ESp-NOW can send at one time. It will be 250
 	 * @note Determined by ESP-NOW API
-	 * @return MAX_DATA_LENGTH
+	 * @return MAX_DATA_LENGTH - number of bytes of of max data length
 	 */
 	uint8_t getMaxMessageLength() override { return MAX_DATA_LENGTH; }
 
@@ -249,16 +302,12 @@ public:
 	 * either unicast or multicast.
 	 *
 	 * @param local Determines whether the MAC address is locally administered (true) or globally unique (false).
-	 *
-	 * - If true, the MAC address will have the local bit (bit 1 of the first byte) set to 1.
-	 *
-	 * - If false, the MAC address will have the local bit cleared to 0.
+	 * If `true`, the MAC address will have the local bit (bit 1 of the first byte) set to 1.
+	 * If `false`, the MAC address will have the local bit cleared to 0.
 	 *
 	 * @param unicast Determines whether the MAC address is unicast (true) or multicast (false).
-	 *
-	 * - If true, the MAC address will have the unicast/multicast bit (bit 0 of the first byte) cleared to 0.
-	 *
-	 * - If false, the MAC address will have the unicast/multicast bit set to 1.
+	 * If `true`, the MAC address will have the unicast/multicast bit (bit 0 of the first byte) cleared to 0.
+	 * If `false`, the MAC address will have the unicast/multicast bit set to 1.
 	 *
 	 * @return uint8_t* A pointer to a statically allocated array of 6 bytes representing the generated MAC address.
 	 *
@@ -273,7 +322,7 @@ public:
 	uint8_t *generateRandomMAC(bool local = true, bool unicast = true);
 
 protected:
-	uint8_t zero_mac[MAC_ADDR_LEN] = {0};
+	uint8_t zero_mac[MAC_ADDR_LEN] = {0}; // {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	uint8_t my_mac_address[MAC_ADDR_LEN] = {0};
 
 	int tx_queue_size;
@@ -292,14 +341,43 @@ protected:
 	peer_list_t peer_list;
 
 	/* ==========> Helper Functions for the Core Functions <========== */
+
+	/**
+	 * @brief Initiates low level ESP-NOW communication APIs while registering low level rx, tx callback functions
+	 * @note Initializes TX queue to hold messages, and TX task that exhausts this queue
+	 */
 	bool initComms() override;
 
+	/**
+	 * @brief Sets WiFi channel
+	 * @param primary Primary channel 0-14. If `0` use the current channel
+	 * @param second Secondary channel, may leave it as the default
+	 * @return `true` success setting channel, `false` faiol setting channel
+	 */
 	bool setChannel(uint8_t primary, wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE);
 
+	/**
+	 * @brief Low Level Callback function of receiving ESPNOW data
+	 * @param mac_addr Source peer MAC address, from where the message came from
+	 * @param data Received Data
+	 * @param data_len Length of received data
+	 */
 	static void rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len);
 
+	/**
+	 * @brief Low Level Callback function of sending ESPNOW data
+	 * @param mac_addr Source peer MAC address, to where the message was sent to
+	 * @param status Status if message was `delivered` or no to the peer
+	 * @note When sending to `Broadcast` address, status will always be delivered,
+	 * when sending to unicast peers, the message can be sent but it will be delivered only when the peer
+	 * sends an `ACK` frame back to confirm that message was delivered
+	 */
 	static void tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status);
 
+	/**
+	 * @brief Task that is constantly looking at the TX queue for messages and exhausting it by sending the message via
+	 *  `esp_now_send`
+	 */
 	static void easyEspNowTxQueueTask(void *pvParameters);
 
 	static void processTxQueueTask(void *pvParameters); // this is for testing only, will be deleted later
