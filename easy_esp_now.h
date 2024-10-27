@@ -169,7 +169,7 @@ public:
 
 	void easyPrintMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
 
-	void enableTransmit(bool enable) override;
+	void enableTXTask(bool enable) override;
 
 	bool addPeer(const uint8_t *peer_addr_to_add);
 
@@ -233,11 +233,6 @@ public:
 	 * @brief Prints the peer list that `peer_list_t` structure keeps as reference to the ESP-NOW peers
 	 */
 	void printPeerList();
-
-	void printtest()
-	{
-		Serial.println(this->wifi_primary_channel);
-	}
 
 protected:
 	uint8_t zero_mac[MAC_ADDR_LEN] = {0};

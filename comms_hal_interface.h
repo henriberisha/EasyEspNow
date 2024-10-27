@@ -133,7 +133,7 @@ public:
      * @brief Enables or disables transmission of queued messages. Used to disable communication during wifi scan
      * @param enable `true` to enable transmission, `false` to disable it
      */
-    virtual void enableTransmit(bool enable) = 0;
+    virtual void enableTXTask(bool enable) = 0;
 };
 
 #endif

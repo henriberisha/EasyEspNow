@@ -90,7 +90,7 @@ void setup()
     Serial.println("Hello World!");
     MONITOR(MAIN_TAG, "Hello World & Mesh");
 
-    easyEspNow.printtest();
+    easyEspNow.enableTXTask(true);
     // Serial.println(mesh.getEspNowVersion());
 
     uint8_t *my_mac;

@@ -327,8 +327,27 @@ void EasyEspNow::easyPrintMac2Char(const uint8_t *some_mac, size_t len, bool upp
 	Serial.printf(format, some_mac[0], some_mac[1], some_mac[2], some_mac[3], some_mac[4], some_mac[5]);
 }
 
-void EasyEspNow::enableTransmit(bool enable)
+void EasyEspNow::enableTXTask(bool enable)
 {
+	if (!txTaskHandle)
+	{
+		WARNING(TAG, "Unable to resume or suspend TX Task because it has not been created yet!");
+		return;
+	}
+
+	if (enable)
+	{
+		INFO(TAG, "Resuming TX Task ...");
+		vTaskResume(easyEspNow.txTaskHandle);
+	}
+
+	else
+	{
+		INFO(TAG, "Suspending TX Task ...");
+		vTaskSuspend(txTaskHandle);
+	}
+
+	return;
 }
 
 bool EasyEspNow::initComms()
