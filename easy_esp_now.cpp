@@ -4,58 +4,7 @@ EasyEspNow easyEspNow;
 
 constexpr auto TAG = "EASY_ESP_NOW";
 
-const char *EasyEspNow::easySendErrorToName(easy_send_error_t send_error)
-{
-	switch (send_error)
-	{
-	case EASY_SEND_OK:
-		return "EASY_SEND_OK";
-	case EASY_SEND_PARAM_ERROR:
-		return "EASY_SEND_PARAM_ERROR";
-	case EASY_SEND_PAYLOAD_LENGTH_ERROR:
-		return "EASY_SEND_PAYLOAD_LENGTH_ERROR";
-	case EASY_SEND_QUEUE_FULL_ERROR:
-		return "EASY_SEND_QUEUE_FULL_ERROR";
-	case EASY_SEND_MSG_ENQUEUE_ERROR:
-		return "EASY_SEND_MSG_ENQUEUE_ERROR";
-	case EASY_SEND_CONFIRM_ERROR:
-		return "EASY_SEND_CONFIRM_ERROR";
-	default:
-		return "UNKNOWN_ERROR";
-	}
-}
-
-wifi_interface_t EasyEspNow::autoselect_if_from_mode(wifi_mode_t mode, bool apstaMOD_to_apIF)
-{
-	if (mode == WIFI_MODE_NULL || mode == WIFI_MODE_MAX)
-	{
-		WARNING(TAG, "Useless WiFi modes, defaulting WiFi interface to: WIFI_IF_STA");
-		return WIFI_IF_STA;
-	}
-	else if (mode == WIFI_MODE_STA)
-	{
-		INFO(TAG, "WiFi mode chosen: WIFI_MODE_STA  ==>  Auto Selecting WiFi interface: WIFI_IF_STA");
-		return WIFI_IF_STA;
-	}
-	else if (mode == WIFI_MODE_AP)
-	{
-		INFO(TAG, "WiFi mode chosen: WIFI_MODE_AP  ==>  Auto Selecting WiFi interface: WIFI_IF_AP");
-		return WIFI_IF_AP;
-	}
-	else if (mode == WIFI_MODE_APSTA)
-	{
-		if (apstaMOD_to_apIF == true)
-		{
-			INFO(TAG, "WiFi mode chosen: WIFI_MODE_APSTA & apstaMOD_to_apIF = true  ==>  Auto Selecting WiFi interface: WIFI_IF_AP");
-			return WIFI_IF_AP;
-		}
-		else if (apstaMOD_to_apIF == false)
-		{
-			INFO(TAG, "WiFi mode chosen: WIFI_MODE_APSTA & apstaMOD_to_apIF = false  ==>  Auto Selecting WiFi interface: WIFI_IF_STA");
-			return WIFI_IF_STA;
-		}
-	}
-}
+/* ==========> Easy ESP-NOW Core Functions <========== */
 
 bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size, bool synch_send)
 {
@@ -149,23 +98,6 @@ bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q
 	return true;
 }
 
-bool EasyEspNow::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
-{
-	esp_err_t ret = esp_wifi_set_channel(primary_channel, second);
-	if (ret == ESP_OK)
-	{
-		MONITOR(TAG, "WiFi channel was successfully set to: %d", primary_channel);
-		wifi_primary_channel = primary_channel;
-		return true;
-	}
-	else
-	{
-		MONITOR(TAG, "Failed to set WiFi channel");
-		VERBOSE(TAG, "Failed to set WiFi channel with error: %s\n", esp_err_to_name(ret));
-		return false;
-	}
-}
-
 void EasyEspNow::stop()
 {
 	MONITOR(TAG, "----------> STOPPING ESP-NOW");
@@ -175,22 +107,6 @@ void EasyEspNow::stop()
 	esp_now_unregister_send_cb();
 	esp_now_deinit();
 	MONITOR(TAG, "<---------- ESP-NOW STOPPED");
-}
-
-int32_t EasyEspNow::getEspNowVersion()
-{
-	uint32_t esp_now_version;
-	err = esp_now_get_version(&esp_now_version);
-	if (err != ESP_OK)
-	{
-		ERROR(TAG, "Failed to get ESP-NOW version with error: %s", esp_err_to_name(err));
-		return -1;
-	}
-	else
-	{
-		MONITOR(TAG, "Success getting ESP-NOW version");
-		return (int32_t)esp_now_version;
-	}
 }
 
 easy_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len)
@@ -254,79 +170,6 @@ easy_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *pay
 	}
 }
 
-bool EasyEspNow::readyToSendData()
-{
-	return uxQueueMessagesWaiting(txQueue) < tx_queue_size;
-}
-
-void EasyEspNow::waitForTXQueueToBeEmptied()
-{
-	if (easyEspNow.txQueue == NULL)
-	{
-		WARNING(TAG, "TX Queue can't be emptied because it has not been initialized...");
-		return;
-	}
-
-	WARNING(TAG, "Waiting for TX Queue to be emptied...");
-	while (uxQueueMessagesWaiting(easyEspNow.txQueue) > 0)
-	{
-		vTaskDelay(pdMS_TO_TICKS(10));
-	}
-	return;
-}
-
-uint8_t *EasyEspNow::getDeviceMACAddress()
-{
-	if (memcmp(my_mac_address, zero_mac, MAC_ADDR_LEN) == 0)
-	{
-		WARNING(TAG, "This device's MAC is not avaiable");
-		return nullptr;
-	}
-
-	return this->my_mac_address;
-}
-
-char *EasyEspNow::easyMac2Char(const uint8_t *some_mac, size_t len, bool upper_case)
-{
-	const uint8_t default_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-	const char *format;
-	if (upper_case)
-		format = "%02X:%02X:%02X:%02X:%02X:%02X";
-	else
-		format = "%02x:%02x:%02x:%02x:%02x:%02x";
-
-	if (!some_mac || len != 6)
-	{
-		some_mac = default_mac;
-		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
-	}
-
-	static char mac_2_char[18] = {0};
-	sprintf(mac_2_char, format, some_mac[0], some_mac[1], some_mac[2], some_mac[3], some_mac[4], some_mac[5]);
-	return mac_2_char;
-}
-
-void EasyEspNow::easyPrintMac2Char(const uint8_t *some_mac, size_t len, bool upper_case)
-{
-	const uint8_t default_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-	const char *format;
-	if (upper_case)
-		format = "%02X:%02X:%02X:%02X:%02X:%02X";
-	else
-		format = "%02x:%02x:%02x:%02x:%02x:%02x";
-
-	if (!some_mac || len != 6)
-	{
-		some_mac = default_mac;
-		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
-		return;
-	}
-
-	Serial.printf(format, some_mac[0], some_mac[1], some_mac[2], some_mac[3], some_mac[4], some_mac[5]);
-}
-
 void EasyEspNow::enableTXTask(bool enable)
 {
 	if (!txTaskHandle)
@@ -350,105 +193,31 @@ void EasyEspNow::enableTXTask(bool enable)
 	return;
 }
 
-bool EasyEspNow::initComms()
+bool EasyEspNow::readyToSendData()
 {
-	// Init ESP-NOW here
-	err = esp_now_init();
-	if (err == ESP_OK)
-	{
-		MONITOR(TAG, "Success initializing ESP-NOW");
-	}
-	else
-	{
-		MONITOR(TAG, "Failed to initialize ESP-NOW");
-		ERROR(TAG, "Failed to initialize ESP-NOW with error: %s", esp_err_to_name(err));
-		return false;
-	}
-
-	// Register low-level rx cb
-	err = esp_now_register_recv_cb(rx_cb);
-	if (err == ESP_OK)
-	{
-		MONITOR(TAG, "Success registering low level ESP-NOW RX callback");
-	}
-	else
-	{
-		MONITOR(TAG, "Failed registering low level ESP-NOW RX callback");
-		ERROR(TAG, "Failed registering low level ESP-NOW RX callback with error: %s", esp_err_to_name(err));
-		return false;
-	}
-
-	// Register low-level tx cb
-	err = esp_now_register_send_cb(tx_cb);
-	if (err == ESP_OK)
-	{
-		MONITOR(TAG, "Success registering low level ESP-NOW TX callback");
-	}
-	else
-	{
-		MONITOR(TAG, "Failed registering low level ESP-NOW TX callback");
-		ERROR(TAG, "Failed registering low level ESP-NOW TX callback with error: %s", esp_err_to_name(err));
-		return false;
-	}
-
-	if (this->synchronous_send == true)
-		tx_queue_size = 1; // may be redundant but set TX Queue size to 1 when synchronous send mode
-
-	// tx_queue = xQueueCreate(tx_queue_size, sizeof(int));
-	// xTaskCreateUniversal(processTxQueueTask, "espnow_loop", 8 * 1024, NULL, 1, &txTask_handle, CONFIG_ARDUINO_RUNNING_CORE);
-
-	txQueue = xQueueCreate(tx_queue_size, sizeof(tx_queue_item_t));
-	// Check if the queue was created successfully
-	if (txQueue == NULL)
-	{
-		ERROR(TAG, "Failed to create TX Queue");
-		// Handle the error, possibly halt or retry queue creation
-		return false;
-	}
-	else
-	{
-		MONITOR(TAG, "Successfully created TX Queue");
-	}
-
-	BaseType_t task_creation_result = xTaskCreateUniversal(easyEspNowTxQueueTask, "send_esp_now", 8 * 1024, NULL, 1, &txTaskHandle, CONFIG_ARDUINO_RUNNING_CORE);
-	if (task_creation_result != pdPASS)
-	{
-		// Task creation failed
-		ERROR(TAG, "TX Task creation failed! Error: %ld", task_creation_result);
-		return false;
-	}
-	else
-	{
-		// Task creation succeeded
-		MONITOR(TAG, "TX Task creation successful");
-	}
-
-	MONITOR(TAG, "TX Synchronous Send mode is set to: [ %s ]. TX Queue Size is set to: [ %d ]", this->synchronous_send ? "TRUE" : "FALSE", this->tx_queue_size);
-
-	return true;
+	return uxQueueMessagesWaiting(txQueue) < tx_queue_size;
 }
 
-// Register cb
+void EasyEspNow::waitForTXQueueToBeEmptied()
+{
+	if (easyEspNow.txQueue == NULL)
+	{
+		WARNING(TAG, "TX Queue can't be emptied because it has not been initialized...");
+		return;
+	}
+
+	WARNING(TAG, "Waiting for TX Queue to be emptied...");
+	while (uxQueueMessagesWaiting(easyEspNow.txQueue) > 0)
+	{
+		vTaskDelay(pdMS_TO_TICKS(10));
+	}
+	return;
+}
+
 void EasyEspNow::onDataReceived(frame_rcvd_data frame_rcvd_cb)
 {
 	DEBUG(TAG, "Registering custom onReceive Callback Function");
 	dataReceived = frame_rcvd_cb;
-}
-
-void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len)
-{
-	DEBUG(TAG, "Calling ESP-NOW low level RX cb");
-
-	espnow_frame_format_t *esp_now_packet = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
-	wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
-	wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
-
-	espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .esp_now_frame = esp_now_packet};
-
-	if (easyEspNow.dataReceived != nullptr)
-	{
-		easyEspNow.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
-	}
 }
 
 void EasyEspNow::onDataSent(frame_sent_data frame_sent_cb)
@@ -457,15 +226,7 @@ void EasyEspNow::onDataSent(frame_sent_data frame_sent_cb)
 	dataSent = frame_sent_cb;
 }
 
-void EasyEspNow::tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
-{
-	DEBUG(TAG, "Calling ESP-NOW low level TX cb");
-
-	if (easyEspNow.dataSent != nullptr)
-	{
-		easyEspNow.dataSent(mac_addr, status);
-	}
-}
+/* ==========> Peer Management Functions <========== */
 
 bool EasyEspNow::addPeer(const uint8_t *peer_addr_to_add)
 {
@@ -648,6 +409,308 @@ void EasyEspNow::printPeerList()
 	}
 }
 
+/* ==========> Miscellaneous Functions <========== */
+
+const char *EasyEspNow::easySendErrorToName(easy_send_error_t send_error)
+{
+	switch (send_error)
+	{
+	case EASY_SEND_OK:
+		return "EASY_SEND_OK";
+	case EASY_SEND_PARAM_ERROR:
+		return "EASY_SEND_PARAM_ERROR";
+	case EASY_SEND_PAYLOAD_LENGTH_ERROR:
+		return "EASY_SEND_PAYLOAD_LENGTH_ERROR";
+	case EASY_SEND_QUEUE_FULL_ERROR:
+		return "EASY_SEND_QUEUE_FULL_ERROR";
+	case EASY_SEND_MSG_ENQUEUE_ERROR:
+		return "EASY_SEND_MSG_ENQUEUE_ERROR";
+	case EASY_SEND_CONFIRM_ERROR:
+		return "EASY_SEND_CONFIRM_ERROR";
+	default:
+		return "UNKNOWN_ERROR";
+	}
+}
+
+wifi_interface_t EasyEspNow::autoselect_if_from_mode(wifi_mode_t mode, bool apstaMOD_to_apIF)
+{
+	if (mode == WIFI_MODE_NULL || mode == WIFI_MODE_MAX)
+	{
+		WARNING(TAG, "Useless WiFi modes, defaulting WiFi interface to: WIFI_IF_STA");
+		return WIFI_IF_STA;
+	}
+	else if (mode == WIFI_MODE_STA)
+	{
+		INFO(TAG, "WiFi mode chosen: WIFI_MODE_STA  ==>  Auto Selecting WiFi interface: WIFI_IF_STA");
+		return WIFI_IF_STA;
+	}
+	else if (mode == WIFI_MODE_AP)
+	{
+		INFO(TAG, "WiFi mode chosen: WIFI_MODE_AP  ==>  Auto Selecting WiFi interface: WIFI_IF_AP");
+		return WIFI_IF_AP;
+	}
+	else if (mode == WIFI_MODE_APSTA)
+	{
+		if (apstaMOD_to_apIF == true)
+		{
+			INFO(TAG, "WiFi mode chosen: WIFI_MODE_APSTA & apstaMOD_to_apIF = true  ==>  Auto Selecting WiFi interface: WIFI_IF_AP");
+			return WIFI_IF_AP;
+		}
+		else if (apstaMOD_to_apIF == false)
+		{
+			INFO(TAG, "WiFi mode chosen: WIFI_MODE_APSTA & apstaMOD_to_apIF = false  ==>  Auto Selecting WiFi interface: WIFI_IF_STA");
+			return WIFI_IF_STA;
+		}
+	}
+}
+
+char *EasyEspNow::easyMac2Char(const uint8_t *some_mac, size_t len, bool upper_case)
+{
+	const uint8_t default_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	const char *format;
+	if (upper_case)
+		format = "%02X:%02X:%02X:%02X:%02X:%02X";
+	else
+		format = "%02x:%02x:%02x:%02x:%02x:%02x";
+
+	if (!some_mac || len != 6)
+	{
+		some_mac = default_mac;
+		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
+	}
+
+	static char mac_2_char[18] = {0};
+	sprintf(mac_2_char, format, some_mac[0], some_mac[1], some_mac[2], some_mac[3], some_mac[4], some_mac[5]);
+	return mac_2_char;
+}
+
+void EasyEspNow::easyPrintMac2Char(const uint8_t *some_mac, size_t len, bool upper_case)
+{
+	const uint8_t default_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	const char *format;
+	if (upper_case)
+		format = "%02X:%02X:%02X:%02X:%02X:%02X";
+	else
+		format = "%02x:%02x:%02x:%02x:%02x:%02x";
+
+	if (!some_mac || len != 6)
+	{
+		some_mac = default_mac;
+		WARNING(TAG, "MAC argument is either null or has a length different from 6.  Defaulting to MAC: [00:00:00:00:00:00]");
+		return;
+	}
+
+	Serial.printf(format, some_mac[0], some_mac[1], some_mac[2], some_mac[3], some_mac[4], some_mac[5]);
+}
+
+int32_t EasyEspNow::getEspNowVersion()
+{
+	uint32_t esp_now_version;
+	err = esp_now_get_version(&esp_now_version);
+	if (err != ESP_OK)
+	{
+		ERROR(TAG, "Failed to get ESP-NOW version with error: %s", esp_err_to_name(err));
+		return -1;
+	}
+	else
+	{
+		MONITOR(TAG, "Success getting ESP-NOW version");
+		return (int32_t)esp_now_version;
+	}
+}
+
+uint8_t *EasyEspNow::getDeviceMACAddress()
+{
+	if (memcmp(my_mac_address, zero_mac, MAC_ADDR_LEN) == 0)
+	{
+		WARNING(TAG, "This device's MAC is not avaiable");
+		return nullptr;
+	}
+
+	return this->my_mac_address;
+}
+
+uint8_t *EasyEspNow::generateRandomMAC(bool local, bool unicast)
+{
+	static uint8_t mac[6]; // Static array to hold the MAC address
+
+	for (int i = 0; i < 6; i++)
+	{
+		mac[i] = random(0, 256); // Generate random byte for each part of the MAC
+	}
+
+	// Set or clear the local bit (bit 1 of the first byte) based on the local flag
+	if (local)
+		mac[0] |= 0x02; // Set to indicate locally administered
+	else
+		mac[0] &= 0xFD; // Clear to indicate globally unique
+
+	// Set or clear the unicast/multicast bit (bit 0 of the first byte) based on the unicast flag
+	if (unicast)
+		mac[0] &= 0xFE; // Clear to indicate unicast
+	else
+		mac[0] |= 0x01; // Set to indicate multicast
+
+	return mac; // Return the pointer to the MAC address array
+}
+/* ==========> Helper Functions for the Core Functions <========== */
+
+bool EasyEspNow::initComms()
+{
+	// Init ESP-NOW here
+	err = esp_now_init();
+	if (err == ESP_OK)
+	{
+		MONITOR(TAG, "Success initializing ESP-NOW");
+	}
+	else
+	{
+		MONITOR(TAG, "Failed to initialize ESP-NOW");
+		ERROR(TAG, "Failed to initialize ESP-NOW with error: %s", esp_err_to_name(err));
+		return false;
+	}
+
+	// Register low-level rx cb
+	err = esp_now_register_recv_cb(rx_cb);
+	if (err == ESP_OK)
+	{
+		MONITOR(TAG, "Success registering low level ESP-NOW RX callback");
+	}
+	else
+	{
+		MONITOR(TAG, "Failed registering low level ESP-NOW RX callback");
+		ERROR(TAG, "Failed registering low level ESP-NOW RX callback with error: %s", esp_err_to_name(err));
+		return false;
+	}
+
+	// Register low-level tx cb
+	err = esp_now_register_send_cb(tx_cb);
+	if (err == ESP_OK)
+	{
+		MONITOR(TAG, "Success registering low level ESP-NOW TX callback");
+	}
+	else
+	{
+		MONITOR(TAG, "Failed registering low level ESP-NOW TX callback");
+		ERROR(TAG, "Failed registering low level ESP-NOW TX callback with error: %s", esp_err_to_name(err));
+		return false;
+	}
+
+	if (this->synchronous_send == true)
+		tx_queue_size = 1; // may be redundant but set TX Queue size to 1 when synchronous send mode
+
+	// tx_queue = xQueueCreate(tx_queue_size, sizeof(int));
+	// xTaskCreateUniversal(processTxQueueTask, "espnow_loop", 8 * 1024, NULL, 1, &txTask_handle, CONFIG_ARDUINO_RUNNING_CORE);
+
+	txQueue = xQueueCreate(tx_queue_size, sizeof(tx_queue_item_t));
+	// Check if the queue was created successfully
+	if (txQueue == NULL)
+	{
+		ERROR(TAG, "Failed to create TX Queue");
+		// Handle the error, possibly halt or retry queue creation
+		return false;
+	}
+	else
+	{
+		MONITOR(TAG, "Successfully created TX Queue");
+	}
+
+	BaseType_t task_creation_result = xTaskCreateUniversal(easyEspNowTxQueueTask, "send_esp_now", 8 * 1024, NULL, 1, &txTaskHandle, CONFIG_ARDUINO_RUNNING_CORE);
+	if (task_creation_result != pdPASS)
+	{
+		// Task creation failed
+		ERROR(TAG, "TX Task creation failed! Error: %ld", task_creation_result);
+		return false;
+	}
+	else
+	{
+		// Task creation succeeded
+		MONITOR(TAG, "TX Task creation successful");
+	}
+
+	MONITOR(TAG, "TX Synchronous Send mode is set to: [ %s ]. TX Queue Size is set to: [ %d ]", this->synchronous_send ? "TRUE" : "FALSE", this->tx_queue_size);
+
+	return true;
+}
+
+bool EasyEspNow::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
+{
+	esp_err_t ret = esp_wifi_set_channel(primary_channel, second);
+	if (ret == ESP_OK)
+	{
+		MONITOR(TAG, "WiFi channel was successfully set to: %d", primary_channel);
+		wifi_primary_channel = primary_channel;
+		return true;
+	}
+	else
+	{
+		MONITOR(TAG, "Failed to set WiFi channel");
+		VERBOSE(TAG, "Failed to set WiFi channel with error: %s\n", esp_err_to_name(ret));
+		return false;
+	}
+}
+
+void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len)
+{
+	DEBUG(TAG, "Calling ESP-NOW low level RX cb");
+
+	espnow_frame_format_t *esp_now_packet = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
+	wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
+	wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
+
+	espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .esp_now_frame = esp_now_packet};
+
+	if (easyEspNow.dataReceived != nullptr)
+	{
+		easyEspNow.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
+	}
+}
+
+void EasyEspNow::tx_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
+	DEBUG(TAG, "Calling ESP-NOW low level TX cb");
+
+	if (easyEspNow.dataSent != nullptr)
+	{
+		easyEspNow.dataSent(mac_addr, status);
+	}
+}
+
+void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
+{
+	tx_queue_item_t item_to_dequeue;
+	while (true)
+	{
+		// Wait for data from the queue
+		if (xQueueReceive(easyEspNow.txQueue, &item_to_dequeue, pdMS_TO_TICKS(10)) == pdTRUE)
+		{
+			if (memcmp(item_to_dequeue.dst_address, easyEspNow.zero_mac, MAC_ADDR_LEN) == 0)
+			{
+				WARNING(TAG, "Destination address is NULL, send data to all of the peers that are added to the peer list");
+				easyEspNow.err = esp_now_send(NULL, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
+			}
+			else
+				easyEspNow.err = esp_now_send(item_to_dequeue.dst_address, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
+
+			if (easyEspNow.err == ESP_OK)
+			{
+				DEBUG(TAG, "Succeed in calling \"esp_now_send(...)\"");
+			}
+			else
+			{
+				ERROR(TAG, "Failed in calling \"esp_now_send(...)\" with error: %s", esp_err_to_name(easyEspNow.err));
+			}
+
+			// add some delay to not overwhelm 'esp_now_send' method
+			// otherwise may get error: 'ESP_ERR_ESPNOW_NO_MEM'
+			// during debug set this higher than 10 to simulate delay
+			vTaskDelay(pdMS_TO_TICKS(100));
+		}
+	}
+}
+
 // just for test, delete later
 void EasyEspNow::sendTest(int data)
 {
@@ -683,39 +746,6 @@ void EasyEspNow::processTxQueueTask(void *pvParameters)
 		{
 			Serial.printf("Processing data: %d. Success | Dropped: %d | %d\n\n", receivedData, easyEspNow.success_process, easyEspNow.dropped);
 			// Simulate processing time
-			vTaskDelay(pdMS_TO_TICKS(100));
-		}
-	}
-}
-
-void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
-{
-	tx_queue_item_t item_to_dequeue;
-	while (true)
-	{
-		// Wait for data from the queue
-		if (xQueueReceive(easyEspNow.txQueue, &item_to_dequeue, pdMS_TO_TICKS(10)) == pdTRUE)
-		{
-			if (memcmp(item_to_dequeue.dst_address, easyEspNow.zero_mac, MAC_ADDR_LEN) == 0)
-			{
-				WARNING(TAG, "Destination address is NULL, send data to all of the peers that are added to the peer list");
-				easyEspNow.err = esp_now_send(NULL, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
-			}
-			else
-				easyEspNow.err = esp_now_send(item_to_dequeue.dst_address, item_to_dequeue.payload_data, item_to_dequeue.payload_len);
-
-			if (easyEspNow.err == ESP_OK)
-			{
-				DEBUG(TAG, "Succeed in calling \"esp_now_send(...)\"");
-			}
-			else
-			{
-				ERROR(TAG, "Failed in calling \"esp_now_send(...)\" with error: %s", esp_err_to_name(easyEspNow.err));
-			}
-
-			// add some delay to not overwhelm 'esp_now_send' method
-			// otherwise may get error: 'ESP_ERR_ESPNOW_NO_MEM'
-			// during debug set this higher than 10 to simulate delay
 			vTaskDelay(pdMS_TO_TICKS(100));
 		}
 	}

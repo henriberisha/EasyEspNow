@@ -51,33 +51,7 @@ typedef struct
 class EasyEspNow : public CommsHalInterface
 {
 public:
-	/**
-	 * @brief Function to return send error `easy_send_error_t` as string
-	 * @param send_error error code of type `easy_send_error_t`
-	 * @return error code from enum to string
-	 */
-	const char *easySendErrorToName(easy_send_error_t send_error);
-
-	/**
-	 * @brief Autoselects the WiFi interface (needed for peer's `ifidx` info) from the chosen WiFi mode
-	 * @note If there is a mismatch between the mode and interface, ESP NOW will not send
-	 *
-	 * - WIFI_MODE_STA  --->  WIFI_IF_STA
-	 *
-	 * - WIFI_MODE_AP  --->  WIFI_IF_AP
-	 *
-	 * - WIFI_MODE_APSTA  --->  WIFI_IF_AP or WIFI_IF_STA (will work either or, does not matter much)
-	 *
-	 * - WIFI_MODE_NULL or WIFI_MODE_MAX  --->  useless for ESP-NOW
-	 * @param mode WiFi mode that is chosen
-	 * @param apstaMOD_to_apIF bool value dto choose which WiFi interface to return when mode is `WIFI_MODE_APSTA`
-	 *
-	 * - `true` user wants interface to be `WIFI_IF_AP` when mode is `WIFI_MODE_APSTA`
-	 *
-	 * - `false` user wants interface to be `WIFI_IF_STA` when mode is `WIFI_MODE_APSTA`
-	 * @return WiFi interface to be used for peer's info structure
-	 */
-	wifi_interface_t autoselect_if_from_mode(wifi_mode_t mode, bool apstaMOD_to_apIF = true);
+	/* ==========> Easy ESP-NOW Core Functions <========== */
 
 	bool begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size = 1, bool synch_send = true) override;
 
@@ -87,33 +61,14 @@ public:
 	 */
 	void stop() override;
 
-	/**
-	 * @brief Get ESP-NOW version
-	 * @return
-	 * - -1 if error getting the version
-	 *
-	 * - version
-	 */
-	int32_t getEspNowVersion();
-
-	/**
-	 * @brief Get Primary channel. This will be the channel that ESP-NOW begins
-	 * @return channel that WiFi modem is on and being used by ESP-NOW
-	 */
-	uint8_t getPrimaryChannel() override { return this->wifi_primary_channel; }
-
-	/**
-	 * @brief Get Seconday channel.
-	 * @return scondry channel that WiFi modem is on and being used by ESP-NOW
-	 */
-	wifi_second_chan_t getSecondaryChannel() { return this->wifi_secondary_channel; }
-
 	easy_send_error_t send(const uint8_t *dstAddress, const uint8_t *payload, size_t payload_len) override;
 
 	easy_send_error_t sendBroadcast(const uint8_t *payload, size_t payload_len)
 	{
 		return send(ESPNOW_BROADCAST_ADDRESS, payload, payload_len);
 	}
+
+	void enableTXTask(bool enable) override;
 
 	/**
 	 * @brief Function to check readiness to send data in the TX Queue
@@ -137,39 +92,7 @@ public:
 
 	void onDataSent(frame_sent_data frame_sent_cb) override;
 
-	/**
-	 * @brief Get MAC address length. It will be 6
-	 * @note MAC address has 6 octets
-	 * @return MAC_ADDR_LEN
-	 */
-	uint8_t getAddressLength() override { return MAC_ADDR_LEN; }
-
-	/**
-	 * @brief Get maximum data length that ESp-NOW can send at one time. It will be 250
-	 * @note Determined by ESP-NOW API
-	 * @return MAX_DATA_LENGTH
-	 */
-	uint8_t getMaxMessageLength() override { return MAX_DATA_LENGTH; }
-
-	/**
-	 * @brief Get MAC address of this device.
-	 * @note The mac address will be dependent to the chosen WiFi interface (`wifi_interface_t`).
-	 *
-	 *  - `WIFI_IF_STA` --> this interface has its own unique MAC
-	 *
-	 *  - `WIFI_IF_AP`  --> this interface has its own unique MAC
-	 * @return
-	 * 	- `nullptr` if MAC address has not been able to be set during the call of begin(...) function,
-	 *
-	 *  - `uint8_t *` pointer to the MAC address location in the memory
-	 */
-	uint8_t *getDeviceMACAddress();
-
-	char *easyMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
-
-	void easyPrintMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
-
-	void enableTXTask(bool enable) override;
+	/* ==========> Peer Management Functions <========== */
 
 	bool addPeer(const uint8_t *peer_addr_to_add);
 
@@ -234,6 +157,121 @@ public:
 	 */
 	void printPeerList();
 
+	/* ==========> Miscellaneous Functions <========== */
+
+	/**
+	 * @brief Function to return send error `easy_send_error_t` as string
+	 * @param send_error error code of type `easy_send_error_t`
+	 * @return error code from enum to string
+	 */
+	const char *easySendErrorToName(easy_send_error_t send_error);
+
+	/**
+	 * @brief Autoselects the WiFi interface (needed for peer's `ifidx` info) from the chosen WiFi mode
+	 * @note If there is a mismatch between the mode and interface, ESP NOW will not send
+	 *
+	 * - WIFI_MODE_STA  --->  WIFI_IF_STA
+	 *
+	 * - WIFI_MODE_AP  --->  WIFI_IF_AP
+	 *
+	 * - WIFI_MODE_APSTA  --->  WIFI_IF_AP or WIFI_IF_STA (will work either or, does not matter much)
+	 *
+	 * - WIFI_MODE_NULL or WIFI_MODE_MAX  --->  useless for ESP-NOW
+	 * @param mode WiFi mode that is chosen
+	 * @param apstaMOD_to_apIF bool value dto choose which WiFi interface to return when mode is `WIFI_MODE_APSTA`
+	 *
+	 * - `true` user wants interface to be `WIFI_IF_AP` when mode is `WIFI_MODE_APSTA`
+	 *
+	 * - `false` user wants interface to be `WIFI_IF_STA` when mode is `WIFI_MODE_APSTA`
+	 * @return WiFi interface to be used for peer's info structure
+	 */
+	wifi_interface_t autoselect_if_from_mode(wifi_mode_t mode, bool apstaMOD_to_apIF = true);
+
+	char *easyMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
+
+	void easyPrintMac2Char(const uint8_t *some_mac, size_t len = MAC_ADDR_LEN, bool upper_case = true);
+
+	/**
+	 * @brief Get ESP-NOW version
+	 * @return
+	 * - -1 if error getting the version
+	 *
+	 * - version
+	 */
+	int32_t getEspNowVersion();
+
+	/**
+	 * @brief Get Primary channel. This will be the channel that ESP-NOW begins
+	 * @return channel that WiFi modem is on and being used by ESP-NOW
+	 */
+	uint8_t getPrimaryChannel() override { return this->wifi_primary_channel; }
+
+	/**
+	 * @brief Get Seconday channel.
+	 * @return scondry channel that WiFi modem is on and being used by ESP-NOW
+	 */
+	wifi_second_chan_t getSecondaryChannel() { return this->wifi_secondary_channel; }
+
+	/**
+	 * @brief Get MAC address length. It will be 6
+	 * @note MAC address has 6 octets
+	 * @return MAC_ADDR_LEN
+	 */
+	uint8_t getAddressLength() override { return MAC_ADDR_LEN; }
+
+	/**
+	 * @brief Get maximum data length that ESp-NOW can send at one time. It will be 250
+	 * @note Determined by ESP-NOW API
+	 * @return MAX_DATA_LENGTH
+	 */
+	uint8_t getMaxMessageLength() override { return MAX_DATA_LENGTH; }
+
+	/**
+	 * @brief Get MAC address of this device.
+	 * @note The mac address will be dependent to the chosen WiFi interface (`wifi_interface_t`).
+	 *
+	 *  - `WIFI_IF_STA` --> this interface has its own unique MAC
+	 *
+	 *  - `WIFI_IF_AP`  --> this interface has its own unique MAC
+	 * @return
+	 * 	- `nullptr` if MAC address has not been able to be set during the call of begin(...) function,
+	 *
+	 *  - `uint8_t *` pointer to the MAC address location in the memory
+	 */
+	uint8_t *getDeviceMACAddress();
+
+	/**
+	 * @brief Generates a random MAC address with specified address type.
+	 *
+	 * This function generates a random MAC address and modifies the first byte
+	 * based on the `local` and `unicast` parameters. The MAC address can be
+	 * configured to be either locally administered or globally unique, and
+	 * either unicast or multicast.
+	 *
+	 * @param local Determines whether the MAC address is locally administered (true) or globally unique (false).
+	 *
+	 * - If true, the MAC address will have the local bit (bit 1 of the first byte) set to 1.
+	 *
+	 * - If false, the MAC address will have the local bit cleared to 0.
+	 *
+	 * @param unicast Determines whether the MAC address is unicast (true) or multicast (false).
+	 *
+	 * - If true, the MAC address will have the unicast/multicast bit (bit 0 of the first byte) cleared to 0.
+	 *
+	 * - If false, the MAC address will have the unicast/multicast bit set to 1.
+	 *
+	 * @return uint8_t* A pointer to a statically allocated array of 6 bytes representing the generated MAC address.
+	 *
+	 * - The MAC address format is a 6-byte array, with each byte generated randomly.
+	 *
+	 * - The first byte is modified based on the `local` and `unicast` parameters to meet the
+	 *  requirements for local/global and unicast/multicast addressing.
+	 *
+	 * @note The returned MAC address is stored in a static array, so subsequent calls to this function will
+	 *       overwrite the previous MAC address. If you need to retain the address, copy it into a separate array.
+	 */
+	uint8_t *generateRandomMAC(bool local = true, bool unicast = true);
+
 protected:
 	uint8_t zero_mac[MAC_ADDR_LEN] = {0};
 	uint8_t my_mac_address[MAC_ADDR_LEN] = {0};
@@ -253,6 +291,7 @@ protected:
 
 	peer_list_t peer_list;
 
+	/* ==========> Helper Functions for the Core Functions <========== */
 	bool initComms() override;
 
 	bool setChannel(uint8_t primary, wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE);

@@ -234,6 +234,12 @@ void setup()
     }
 
     Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));
+
+    for (int i = 0; i < 6; i++)
+    {
+        uint8_t *rand_mac = easyEspNow.generateRandomMAC();
+        Serial.printf("Random generated MAC: %s\n", easyEspNow.easyMac2Char(rand_mac));
+    }
 }
 
 void loop()
