@@ -1,0 +1,58 @@
+# Class Name
+CommsHalInterface           KEYWORD1
+EasyEspNow           KEYWORD1
+
+# Functions
+begin               KEYWORD1
+stop             KEYWORD1
+send           KEYWORD1
+sendBroadcast           KEYWORD1
+enableTXTask           KEYWORD1
+readyToSendData           KEYWORD1
+waitForTXQueueToBeEmptied           KEYWORD1
+onDataReceived           KEYWORD1
+onDataSent           KEYWORD1
+addPeer           KEYWORD1
+deletePeer           KEYWORD1
+getPeer           KEYWORD1
+peerExists           KEYWORD1
+updateLastSeenPeer           KEYWORD1
+countPeers           KEYWORD1
+printPeerList           KEYWORD1
+getPeerList           KEYWORD1
+easySendErrorToName           KEYWORD1
+autoselect_if_from_mode           KEYWORD1
+easyMac2Char           KEYWORD1
+easyPrintMac2Char           KEYWORD1
+getEspNowVersion           KEYWORD1
+getPrimaryChannel           KEYWORD1
+getSecondaryChannel           KEYWORD1
+getAddressLength           KEYWORD1
+getMaxMessageLength           KEYWORD1
+getDeviceMACAddress           KEYWORD1
+generateRandomMAC           KEYWORD1
+switchChannel           KEYWORD1
+
+
+# Constants
+ESPNOW_BROADCAST_ADDRESS      KEYWORD2
+MIN_WIFI_CHANNEL         KEYWORD2
+MAX_WIFI_CHANNEL         KEYWORD2
+MAC_ADDR_LEN         KEYWORD2
+LMK_LENGTH         KEYWORD2
+MAX_TOTAL_PEER_NUM         KEYWORD2
+MAX_ENCRYPT_PEER_NUM         KEYWORD2
+MAX_DATA_LENGTH         KEYWORD2
+
+# Custom Types
+espnow_frame_format_t        KEYWORD3
+espnow_frame_recv_info_t        KEYWORD3
+frame_rcvd_data        KEYWORD3
+frame_sent_data        KEYWORD3
+easy_send_error_t        KEYWORD3
+peer_t        KEYWORD3
+peer_list_t        KEYWORD3
+CountPeers        KEYWORD3
+tx_queue_item_t        KEYWORD3
+espnow_frame_format_t        KEYWORD3
+espnow_frame_format_t        KEYWORD3
