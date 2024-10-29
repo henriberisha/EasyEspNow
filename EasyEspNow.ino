@@ -240,6 +240,28 @@ void setup()
         uint8_t *rand_mac = easyEspNow.generateRandomMAC();
         Serial.printf("Random generated MAC: %s\n", easyEspNow.easyMac2Char(rand_mac));
     }
+
+    // How to get the reference list for all the peers
+    peer_list_t peer_list = easyEspNow.getPeerList();
+    Serial.printf("Total peers: %d\n", peer_list.peer_number);
+
+    for (uint8_t i = 0; i < peer_list.peer_number; i++)
+    {
+        uint32_t last_seen = peer_list.peer[i].time_peer_added;
+        uint8_t mac[MAC_ADDR_LEN] = {0};
+        memcpy(mac, peer_list.peer[i].mac, MAC_ADDR_LEN);
+        Serial.printf("Peer %d -> MAC Address: %s. Time Peer Added: %u\n", i + 1, easyEspNow.easyMac2Char(mac), last_seen);
+    }
+
+    easyEspNow.switchChannel(15);
+    easyEspNow.switchChannel(-5);
+    easyEspNow.switchChannel(10);
+    Serial.printf("WiFi channel after switch on the fly: %d\n", WiFi.channel());
+    Serial.printf("WiFi channel: %d\n", easyEspNow.getPrimaryChannel());
+
+    Serial.println(easyEspNow.updateLastSeenPeer(ESPNOW_BROADCAST_ADDRESS));
+    uint8_t TEST_NOT_EXIST[] = {0xAB, 0xAF, 0xCE, 0xFF, 0xAB, 0xFF, 0xCE, 0xFF};
+    Serial.println(easyEspNow.updateLastSeenPeer(TEST_NOT_EXIST));
 }
 
 void loop()

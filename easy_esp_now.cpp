@@ -373,6 +373,25 @@ bool EasyEspNow::peerExists(const uint8_t *peer_addr)
 	return esp_now_is_peer_exist(peer_addr);
 }
 
+bool EasyEspNow::updateLastSeenPeer(const uint8_t *peer_addr)
+{
+	if (peerExists(peer_addr))
+	{
+		for (int i = 0; i < peer_list.peer_number; i++)
+		{
+			if (memcmp(peer_list.peer[i].mac, peer_addr, MAC_ADDR_LEN) == 0)
+			{
+				uint32_t last_seen = millis();
+				peer_list.peer[i].time_peer_added = last_seen;
+				INFO(TAG, "Peer[#%d] with MAC: " EASYMACSTR " was updated to last seen: %d ms", i + 1, EASYMAC2STR(peer_addr), last_seen);
+				return true;
+			}
+		}
+	}
+	WARNING(TAG, "Not possible to update last seen for MAC: " EASYMACSTR ". Maybe it does not exists as a peer!", EASYMAC2STR(peer_addr));
+	return false;
+}
+
 int EasyEspNow::countPeers(CountPeers count_type)
 {
 	esp_now_peer_num_t num;
@@ -555,6 +574,56 @@ uint8_t *EasyEspNow::generateRandomMAC(bool local, bool unicast)
 
 	return mac; // Return the pointer to the MAC address array
 }
+
+bool EasyEspNow::switchChannel(uint8_t primary, wifi_second_chan_t second)
+{
+	if (primary < 1 || primary > 14)
+	{
+		WARNING(TAG, "Can't switch channel. Invalid value[%d] provided. Must be within the range [1..14]", primary);
+		return false;
+	}
+
+	// This will set the WiFi channel for the home (this station)
+	if (setChannel(primary, second))
+	{
+		bool no_errors = true;
+		// iterate through all the peers and change the channel for each of them
+		for (uint8_t i = 0; i < peer_list.peer_number; i++)
+		{
+			uint32_t last_seen = peer_list.peer[i].time_peer_added;
+			uint8_t mac[MAC_ADDR_LEN] = {0};
+			memcpy(mac, peer_list.peer[i].mac, MAC_ADDR_LEN);
+			// Retrieve and modify peer info structures
+			esp_now_peer_info_t fetchedPeer;
+
+			esp_err_t get_peer_err, mod_peer_err;
+
+			get_peer_err = esp_now_get_peer(mac, &fetchedPeer);
+			if (get_peer_err == ESP_OK)
+			{
+				fetchedPeer.channel = primary; // New channel for peer
+				mod_peer_err = esp_now_mod_peer(&fetchedPeer);
+				if (mod_peer_err != ESP_OK)
+				{
+					MONITOR(TAG, "Failed to modify channel[%d] for peer[#%d] with MAC: " EASYMACSTR ". Error: %s", primary, i + 1, EASYMAC2STR(mac), esp_err_to_name(mod_peer_err));
+					no_errors = false;
+				}
+				else
+				{
+					MONITOR(TAG, "Successfully modified to channel[%d] for peer[#%d] with MAC: " EASYMACSTR, primary, i + 1, EASYMAC2STR(mac));
+				}
+			}
+			else
+			{
+				MONITOR(TAG, "Failed to retrieve info for peer[#%d] with MAC: " EASYMACSTR ". Error: %s", i + 1, EASYMAC2STR(mac), esp_err_to_name(get_peer_err));
+				no_errors = false;
+			}
+		}
+		return no_errors;
+	}
+	else
+		return false;
+}
 /* ==========> Helper Functions for the Core Functions <========== */
 
 bool EasyEspNow::initComms()
@@ -642,6 +711,7 @@ bool EasyEspNow::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
 	{
 		MONITOR(TAG, "WiFi channel was successfully set to: %d", primary_channel);
 		wifi_primary_channel = primary_channel;
+		wifi_secondary_channel = second;
 		return true;
 	}
 	else

@@ -176,6 +176,14 @@ public:
 	bool peerExists(const uint8_t *peer_addr);
 
 	/**
+	 * @brief Update last seen value for peer with MAC address
+	 * @param peer_addr peer's mac that we want to update for last seen
+	 * @return `true` for success, `false` for fail - maybe peer does not exists
+	 * @note This function will only update `time_peer_added` value for the peer in the `peer_list_t`. It will be set equal to `millis()`
+	 */
+	bool updateLastSeenPeer(const uint8_t *peer_addr);
+
+	/**
 	 * @brief Counts the number of peers
 	 * @note A wrapper which makes a call to ESP-NOW function: `esp_now_get_peer_num(...)`
 	 * @param count_type Argument that has enum type: `CountPeers`
@@ -196,6 +204,17 @@ public:
 	 * @brief Prints the peer list that `peer_list_t` structure keeps as reference to the ESP-NOW peers
 	 */
 	void printPeerList();
+
+	/**
+	 * @brief This function returns the `peer_list_t` structure itself. A way to get the peer list as ESP-NOW does not have a way to return the full list
+	 * @return peer list that this class holds in thhe type of `peer_list_t`.
+	 * @note When the `peer_list_t` structure is returned, it is returned by value. This means that a copy of the structure
+	 * is created and returned to the caller. As a result ->
+	 * Original Structure Unaffected: Any changes made to the returned copy will not affect the original structure.
+	 * No Risk of Modifying Protected Data: Since the function returns a copy, it does not provide direct access to the original data.
+	 * This is useful in cases where you want to prevent unintended modifications to protected data.
+	 */
+	peer_list_t getPeerList() { return peer_list; }
 
 	/* ==========> Miscellaneous Functions <========== */
 
@@ -320,6 +339,16 @@ public:
 	 *       overwrite the previous MAC address. If you need to retain the address, copy it into a separate array.
 	 */
 	uint8_t *generateRandomMAC(bool local = true, bool unicast = true);
+
+	/**
+	 * @brief Function to make possible switching the WiFi channel on the fly
+	 * @param primary channel to set this station. Should be in the range [1...14]. If providing a negative value, will see a completely random number due to type being uint8_t
+	 * @param second secondary channel needed for low level API that sets the WiFi channel
+	 * @return `true` if success, `false` if some error occurred
+	 * @note The switch of channel for this base station and for the peers it holds may result in messages not being sent to destination
+	 *  or received from source peers due to channel change. Handle carefully. Maybe switch channel when TX queue is empty
+	 */
+	bool switchChannel(uint8_t primary, wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE);
 
 protected:
 	uint8_t zero_mac[MAC_ADDR_LEN] = {0}; // {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
