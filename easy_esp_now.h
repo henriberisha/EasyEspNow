@@ -1,5 +1,6 @@
-#ifndef MESH_NOW_H
-#define MESH_NOW_H
+#ifndef EASY_ESP_NOW_H
+#define EASY_ESP_NOW_H
+#ifdef ESP32
 
 #include "Arduino.h"
 #include "easy_debug.h"
@@ -414,4 +415,5 @@ protected:
 
 extern EasyEspNow easyEspNow;
 
+#endif // ESP32
 #endif

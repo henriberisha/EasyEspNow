@@ -5,6 +5,8 @@
 
 #if defined ESP32
 #include "easy_esp_now.h"
+#else
+#error "Unsupported Platform"
 #endif // ESP32
 
 #endif // MESH_ESP_NOW_H

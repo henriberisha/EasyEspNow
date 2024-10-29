@@ -1,3 +1,5 @@
+#ifdef ESP32
+
 #include "easy_esp_now.h"
 
 EasyEspNow easyEspNow;
@@ -820,3 +822,5 @@ void EasyEspNow::processTxQueueTask(void *pvParameters)
 		}
 	}
 }
+
+#endif // ESP32

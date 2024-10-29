@@ -1,5 +1,6 @@
 #ifndef COMMS_HAL_INTERFACE_H
 #define COMMS_HAL_INTERFACE_H
+#ifdef ESP32
 
 #include <esp_wifi.h>
 
@@ -102,4 +103,5 @@ public:
     virtual void enableTXTask(bool enable) = 0;
 };
 
+#endif // ESP32
 #endif
