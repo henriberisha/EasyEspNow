@@ -19,6 +19,7 @@ typedef enum {
 } wifi_interface_t;
 */
 
+// https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_now.html#frame-format
 typedef struct
 {
     unsigned protocol : 2;
@@ -36,7 +37,7 @@ typedef struct
     uint8_t random_values[4];
     struct
     {
-        uint8_t element_id;                 // 0xdd
+        uint8_t element_id;                 // 0xdd ; set to the value (221)
         uint8_t length;                     //
         uint8_t organization_identifier[3]; // 0x18fe34
         uint8_t type;                       // 4

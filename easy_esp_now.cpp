@@ -728,6 +728,13 @@ void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_le
 {
 	DEBUG(TAG, "Calling ESP-NOW low level RX cb");
 
+	/** Why This Works:
+	 * In promiscuous mode, the received ESP-NOW data is part of a larger 802.11 packet (Management -> Action Frame ).
+	 * When the data pointer is passed to the callback, it only points to the payload portion of the packet.
+	 * By manipulating the pointer (shifting it back), you're able to access the surrounding metadata,
+	 * such as the frame headers and control information that are part of the full 802.11 packet.
+	 */
+
 	espnow_frame_format_t *esp_now_packet = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
 	wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
 	wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
