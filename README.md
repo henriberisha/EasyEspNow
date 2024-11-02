@@ -11,6 +11,7 @@
 [Technical Explanations ⚠️](#technical-explanations)
 [Debugger](#debugger)
 [EasyEspNow API Functionality](#api-functionality)
+[Guide How to use send() depending on mode]
 [About Encryption](#some-words-about-encryption)
 
 ### Credits & Disclaimer
@@ -232,6 +233,68 @@ typedef struct
     wifi_pkt_rx_ctrl_t *radio_header;  // radio metadata includin rssi and much more
     espnow_frame_format_t *esp_now_frame;  // complete above frame
 } espnow_frame_recv_info_t;
+```
+
+### Guide on using `send()` to avoid packet drop
+
+Best approach is to have the send rate lower than TX queue exhaust rate
+TX exhaust rate has a delay of 13us. If send rate has a delay larger than 13us for example 20us, things should be good and you should not see any packet drop
+
+```c
+/* SYNCHRONOUS MODE */
+// assures no packet drop when sending
+void loop()
+{
+    String data = "Hello World";
+    // Here is doing only Broadcasting
+    easy_send_error_t code = easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)data.c_str(), data.length());
+    MONITOR(MAIN_TAG, "Last send return code value: %s\n", easyEspNow.easySendErrorToName(code));
+
+    // add some delay to simulate longer code run
+    // if this is faster than TX exhaust rate (i have set it in the code to be `vTaskDelay(pdMS_TO_TICKS(13)`
+    // you will get this: [115535] [WARNING] [EASY_ESP_NOW]: Synchronous send mode. Waiting for free space in TX Queue
+    // otherwise no WARNING.
+    vTaskDelay(pdMS_TO_TICKS(13));
+}
+```
+
+```c
+/* ASYNCHRONOUS MODE */
+// TX queue can hold more than 1 outgoing message
+// packet dropping can happen when TX queue is full and a message can't be enqued
+void loop()
+{
+    String data = "Hello World";
+    // Here is doing only Broadcasting
+    easy_send_error_t code = easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)data.c_str(), data.length());
+    MONITOR(MAIN_TAG, "Last send return code value: %s\n", easyEspNow.easySendErrorToName(code));
+
+    // add some delay to simulate longer code run
+    // if this is significantly faster than TX exhaust rate (i have set it in the code to be `vTaskDelay(pdMS_TO_TICKS(13)`
+    // you will get this: [31220] [WARNING] [EASY_ESP_NOW]: TX Queue full. Can not add message to queue. Dropping message...
+    // packet drop
+    vTaskDelay(pdMS_TO_TICKS(1000));
+}
+```
+
+```c
+/* ASYNCHRONOUS MODE */
+// TX queue can hold more than 1 outgoing message
+// how to mitigate packet dropping when TX queue is full
+void loop()
+{
+    String data = "Hello World";
+    // condition is needed to avoid packet drop only when doing asynch
+    if (!easyEspNow.readyToSendData()) // if TX queue is full, wait for it to completely exhaust
+        easyEspNow.waitForTXQueueToBeEmptied();
+    easy_send_error_t code = easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)data.c_str(), data.length());
+    MONITOR(MAIN_TAG, "Last send return code value: %s\n", easyEspNow.easySendErrorToName(code));
+
+    // add some delay to simulate longer code run
+    // if this is significantly faster than TX exhaust rate (i have set it in the code to be `vTaskDelay(pdMS_TO_TICKS(13)`
+    // packet drop mitigation condition will take place
+    vTaskDelay(pdMS_TO_TICKS(1000));
+}
 ```
 
 ### Some Words About Encryption

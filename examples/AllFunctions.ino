@@ -16,6 +16,9 @@ uint8_t channel = 7;
 int CURRENT_LOG_LEVEL = LOG_VERBOSE;     // need to set some log level, otherwise will have issues
 constexpr auto MAIN_TAG = "MAIN_SKETCH"; // need to set a tag
 
+bool demo_enable_disable_TX_task = true;
+bool TX_task_disabled = false;
+
 // this could be the MAC of one of your devices, replace with the correct one
 uint8_t some_peer_device[] = {0xCD, 0x56, 0x47, 0xFC, 0xAF, 0xB3};
 uint8_t some_other_peer_device[] = {0xCF, 0x56, 0x47, 0xFC, 0xAF, 0xB3};
@@ -99,7 +102,7 @@ void setup()
     wifi_interface_t wifi_interface = easyEspNow.autoselect_if_from_mode(wifi_mode);
 
     /* begin in synch send */
-    bool begin_esp_now = easyEspNow.begin(channel, wifi_interface, 1, true);
+    bool begin_esp_now = easyEspNow.begin(channel, wifi_interface, 10, false);
     /* begin in asynch send */
     // bool begin_esp_now = easyEspNow.begin(channel, wifi_interface, 7, false);
     if (begin_esp_now)
@@ -252,11 +255,50 @@ void setup()
 void loop()
 {
     String data = message + " " + String(count++);
-    // Here is doing only Broadcasting
-    easy_send_error_t error = easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)data.c_str(), data.length());
-    MONITOR(MAIN_TAG, "Last send return error value: %s\n", easyEspNow.easySendErrorToName(error));
 
-    // add some delay to simulate longer ce run
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    // condition is needed to avoid packet drop only when doing asynch
+    if (!easyEspNow.readyToSendData())
+        easyEspNow.waitForTXQueueToBeEmptied();
+    easy_send_error_t code = easyEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t *)data.c_str(), data.length());
+    // easy_send_error_t code = easyEspNow.sendBroadcast((uint8_t *)data.c_str(), data.length());
+    MONITOR(MAIN_TAG, "Last send return code value: %s\n", easyEspNow.easySendErrorToName(code));
+
+    // add some delay to simulate longer code run
+    // for this demo i put rate 12us on purpose less than 13us which is the TX exhaust rate
+    // in your code TX send should be slower than TX exhaust
+    vTaskDelay(pdMS_TO_TICKS(12));
     // delay(2000);
+
+    // simulating enable/disable TX task, careful how it is used.
+    // if the TX task is suspended, and messages are being sent, it will cause message drop as soon as TX queue gets full.
+    // if the TX task is suspended, `waitForTXQueueToBeEmptied` will unblock by exiting to avoid an infinite loop
+    // i suggest to stop sending anything, suspend TX task to free resources as needed
+    if (millis() > 20000 && millis() < 40000)
+    {
+        easyEspNow.enableTXTask(false);
+    }
+    else if (millis() > 60000 && millis() < 65000)
+    {
+        easyEspNow.enableTXTask(true);
+        delay(1000);
+
+        // for this demo purpose, switch channel after TX task is enabled to assure channel switch happens
+        if (easyEspNow.switchChannel(9))
+            Serial.println("Switched channel");
+        else
+            Serial.println("Did not switch channel");
+        delay(6000);
+
+        Serial.printf("WiFi channel after attempt to switch on the fly: %d\n", WiFi.channel());
+        Serial.printf("WiFi channel: %d\n", easyEspNow.getPrimaryChannel());
+    }
+
+    if (millis() > 100000)
+    {
+        easyEspNow.stop();
+        while (true)
+        {
+            ; // do nothing
+        }
+    }
 }

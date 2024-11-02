@@ -357,16 +357,10 @@ protected:
 
 	int tx_queue_size;
 	bool synchronous_send;
-	bool wait_for_send_confirmation;
+	bool tx_task_resumed = true;
 
 	TaskHandle_t txTaskHandle;
 	QueueHandle_t txQueue;
-
-	TaskHandle_t txTask_handle; // this is for testing only, will be deleted later
-	QueueHandle_t tx_queue;		// this is for testing only, will be deleted later
-
-	int success_process = 0;
-	int dropped = 0;
 
 	peer_list_t peer_list;
 
@@ -409,8 +403,6 @@ protected:
 	 *  `esp_now_send`
 	 */
 	static void easyEspNowTxQueueTask(void *pvParameters);
-
-	static void processTxQueueTask(void *pvParameters); // this is for testing only, will be deleted later
 };
 
 extern EasyEspNow easyEspNow;

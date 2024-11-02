@@ -180,16 +180,18 @@ void EasyEspNow::enableTXTask(bool enable)
 		return;
 	}
 
-	if (enable)
+	if (enable && tx_task_resumed == false)
 	{
 		INFO(TAG, "Resuming TX Task ...");
-		vTaskResume(easyEspNow.txTaskHandle);
+		vTaskResume(txTaskHandle);
+		tx_task_resumed = true;
 	}
 
-	else
+	else if (enable == false && tx_task_resumed == true)
 	{
 		INFO(TAG, "Suspending TX Task ...");
 		vTaskSuspend(txTaskHandle);
+		tx_task_resumed = false;
 	}
 
 	return;
@@ -209,7 +211,8 @@ void EasyEspNow::waitForTXQueueToBeEmptied()
 	}
 
 	WARNING(TAG, "Waiting for TX Queue to be emptied...");
-	while (uxQueueMessagesWaiting(easyEspNow.txQueue) > 0)
+	// if the task is suspended no need to continue blocking, otherwise will be stuck here
+	while (uxQueueMessagesWaiting(easyEspNow.txQueue) > 0 && tx_task_resumed == true)
 	{
 		vTaskDelay(pdMS_TO_TICKS(10));
 	}
@@ -784,47 +787,8 @@ void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
 			// add some delay to not overwhelm 'esp_now_send' method
 			// otherwise may get error: 'ESP_ERR_ESPNOW_NO_MEM'
 			// during debug set this higher than 10 to simulate delay
-			vTaskDelay(pdMS_TO_TICKS(100));
-		}
-	}
-}
-
-// just for test, delete later
-void EasyEspNow::sendTest(int data)
-{
-	// Send data to the queue
-	int enqueued = uxQueueMessagesWaiting(tx_queue);
-	Serial.printf("Queue status (Enqueued | Size) -> %d | %d\n", enqueued, easyEspNow.tx_queue_size);
-	if (enqueued == tx_queue_size)
-	{
-		Serial.println("TX queu full");
-	}
-	// portMAX_DELAY -> will wait indefinitely
-	// pdMS_TO_TICKS -> will have a timeout
-	if (xQueueSend(tx_queue, &data, pdMS_TO_TICKS(20)) != pdTRUE)
-	{
-		Serial.println("Failed to send data to the queue");
-		easyEspNow.dropped++;
-	}
-	else
-	{
-		easyEspNow.success_process++;
-	}
-}
-
-// just for test, delete later
-void EasyEspNow::processTxQueueTask(void *pvParameters)
-{
-	int receivedData;
-
-	while (true)
-	{
-		// Wait for data from the queue
-		if (xQueueReceive(easyEspNow.tx_queue, &receivedData, portMAX_DELAY) == pdTRUE)
-		{
-			Serial.printf("Processing data: %d. Success | Dropped: %d | %d\n\n", receivedData, easyEspNow.success_process, easyEspNow.dropped);
-			// Simulate processing time
-			vTaskDelay(pdMS_TO_TICKS(100));
+			// TX exhaust rate
+			vTaskDelay(pdMS_TO_TICKS(2200));
 		}
 	}
 }
