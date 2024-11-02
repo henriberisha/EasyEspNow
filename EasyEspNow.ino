@@ -219,18 +219,19 @@ void setup()
     Serial.printf("Total peers: %d. Encrypted Peers: %d. Unencrypted Peers: %d\n\n",
                   easyEspNow.countPeers(TOTAL_NUM), easyEspNow.countPeers(ENCRYPTED_NUM), easyEspNow.countPeers(UNENCRYPTED_NUM));
 
-    peer_t *peer;
+    /* How to get a peer */
+    peer_t peer;
     esp_now_peer_info_t peer_info;
-    peer = easyEspNow.getPeer(TEST_ADDRESS2, peer_info);
-    if (peer)
+    peer = easyEspNow.getPeer(ESPNOW_BROADCAST_ADDRESS, peer_info);
+    if (peer.time_peer_added > 0)
     {
-        Serial.printf("Peer: [" EASYMACSTR "] with timestamp: %d ms\n", EASYMAC2STR(peer->mac), peer->time_peer_added);
-        Serial.printf("Detailed peer info -> MAC: " EASYMACSTR ", CHANNEL: %d, ENCRYPTION: %s\n\n",
-                      EASYMAC2STR(peer_info.peer_addr), peer_info.channel, peer_info.encrypt == 0 ? "Not Encrypted" : "Encrypted");
+        MONITOR(MAIN_TAG, "Peer: [" EASYMACSTR "] with timestamp: %d ms\n", EASYMAC2STR(peer.mac), peer.time_peer_added);
+        MONITOR(MAIN_TAG, "Detailed peer info -> MAC: " EASYMACSTR ", CHANNEL: %d, ENCRYPTION: %s\n\n",
+                EASYMAC2STR(peer_info.peer_addr), peer_info.channel, peer_info.encrypt == 0 ? "Not Encrypted" : "Encrypted");
     }
     else
     {
-        Serial.printf("Can't get peer");
+        MONITOR(MAIN_TAG, "Can't get peer");
     }
 
     Serial.println(easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS));

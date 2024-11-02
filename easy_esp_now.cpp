@@ -302,7 +302,7 @@ uint8_t *EasyEspNow::deletePeer(bool keep_broadcast_addr)
 		//  Time, is saved in millis, time increases, so older peers will have smaller time value as they were adder earlier
 		if (keep_broadcast_addr && memcmp(peer_list.peer[i].mac, ESPNOW_BROADCAST_ADDRESS, MAC_ADDR_LEN) == 0)
 		{
-			Serial.println("BROADDDD");
+			DEBUG(TAG, "Broadcast MAC detected");
 			continue;
 		}
 		else
@@ -311,12 +311,11 @@ uint8_t *EasyEspNow::deletePeer(bool keep_broadcast_addr)
 			{
 				oldest_peer_time = peer_list.peer[i].time_peer_added;
 				oldest_index = i;
-				Serial.println("test");
 			}
 		}
 	}
 
-	Serial.printf("Oldest index: %d", oldest_index);
+	DEBUG(TAG, "Oldest index: %d", oldest_index);
 
 	if (oldest_index == -1)
 	{
@@ -347,10 +346,9 @@ uint8_t *EasyEspNow::deletePeer(bool keep_broadcast_addr)
 	}
 }
 
-peer_t *EasyEspNow::getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info)
+peer_t EasyEspNow::getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info)
 {
-	peer_t *peer;
-
+	peer_t peer = {}; // for an invalid peer
 	err = esp_now_get_peer(peer_addr_to_get, &peer_info);
 	if (err == ESP_OK)
 	{
@@ -358,15 +356,15 @@ peer_t *EasyEspNow::getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t
 		{
 			if (memcmp(peer_list.peer[i].mac, peer_addr_to_get, MAC_ADDR_LEN) == 0)
 			{
-				MONITOR(TAG, "Success getting peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_addr_to_get), peer_list.peer_number);
-				return peer_list.peer;
+				DEBUG(TAG, "Success getting peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_addr_to_get), peer_list.peer_number);
+				return peer_list.peer[i];
 			}
 		}
 	}
 	else
 	{
 		ERROR(TAG, "Failed to get peer: [" EASYMACSTR "] with error: %s\n", EASYMAC2STR(peer_addr_to_get), esp_err_to_name(err));
-		return nullptr;
+		return peer; // return invalid peer
 	}
 }
 
@@ -423,11 +421,12 @@ int EasyEspNow::countPeers(CountPeers count_type)
 
 void EasyEspNow::printPeerList()
 {
-	Serial.printf("Number of peers %d\n", peer_list.peer_number);
+	Serial.printf("\n\nPrinting Peer List! Number of peers %d\n", peer_list.peer_number);
 	for (int i = 0; i < peer_list.peer_number; i++)
 	{
-		Serial.printf("Peer [" EASYMACSTR "] is %d ms old\n", MAC2STR(peer_list.peer[i].mac), millis() - peer_list.peer[i].time_peer_added);
+		Serial.printf("Peer [" EASYMACSTR "] with timestamp %lu is %d ms old\n", MAC2STR(peer_list.peer[i].mac), peer_list.peer[i].time_peer_added, millis() - peer_list.peer[i].time_peer_added);
 	}
+	Serial.printf("\n\n");
 }
 
 /* ==========> Miscellaneous Functions <========== */

@@ -162,7 +162,7 @@ public:
 	 */
 	uint8_t *deletePeer(bool keep_broadcast_addr = true); // this should delete the oldest peer
 
-	peer_t *getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info);
+	peer_t getPeer(const uint8_t *peer_addr_to_get, esp_now_peer_info_t &peer_info);
 	// needed a modify peer TODO
 
 	/**
