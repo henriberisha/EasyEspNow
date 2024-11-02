@@ -204,10 +204,10 @@ typedef struct
 
 ### Some Words About Encryption
 
-This library does not support ESP-NOW API's encryption mechanism. However, it is important for me to share some of my findings related to the encryption. I think it may be useful to anyone that desires to use directly the `ESP-NOW API` Setting `PMK` only will not encrypt anything. You need to set the `LMK` for the specific peer to achieve `CCMP` level encryption for the frame. If encryption is successful, you will see that data will be encrypted in `Wireshark`. In my understanding, for every pair of peers you will need an `LMK`. Or you can use the same `LMK` across the board. For example:
+This library does not support ESP-NOW API's encryption mechanism. However, it is important for me to share some of my findings related to the encryption. I think it may be useful to anyone that desires to use directly the `ESP-NOW API`. Can't set encryption for multicast peers such as `broadcast` MAC. Setting `PMK` only will not encrypt anything. You need to set the `LMK` for the specific peer to achieve `CCMP` level encryption for the frame. If encryption is successful, you will see that data will be encrypted in `Wireshark`. In my understanding, for every pair of peers you will need an `LMK`. Or you can use the same `LMK` across the board. For example:
 
 ```txt
-There are 3 devices. Device A, B, C.
+There are 3 devices. Device A, B, C and none of them has a multicast MAC.
 There is the same `PMK` for all devices that needs to be set with `esp_now_set_pmk(const uint8_t *pmk);`
 In order for any of these devices to talk to each other in an encrypted way they need to have each other in the peer list and have the same `LMK`
 
