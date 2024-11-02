@@ -8,7 +8,7 @@
 [ESP-NOW References](#esp-now-references)
 [Boards Compatibility](#boards-compatibility)
 [TODO](#todos)
-[Technical Explanations](#technical-explanations)
+[Technical Explanations ⚠️](#technical-explanations)
 [EasyEspNow API Functionality](#api-functionality)
 [About Encryption](#some-words-about-encryption)
 
@@ -37,15 +37,45 @@ At this time i am not sure if it will work with board versions `< 2.0.17`
 
 ### Technical Explanations
 
+- It is possible to use `Wireshark` to sniff promiscuous `ESP-NOW` packets in `802.11`. You will need to put in monitor mode, have a network card that supports monitor mode such as an `Alfa`. In addition, you will need to set the channel in which you are monitoring to match the channel that `ESP-NOW` communication is happening. Filter for `Action Frames` => `wlan.fc.type_subtype == 0x000d`.
+- In `unicast`, a device sends `ESP-NOW` message with an `Action Frame` and the receiver should reply with `ACK` frame => `wlan.fc.type_subtype == 0x001d`.
+- A device can send a message successfully, but that does not mean that the `Delivery status` is `true`. Delivery is true only when the receiver responds to the sender with the `ACK` frame. Basically sending does not mean delivery.
+- For `broadcast`, `Delivery` is always `true` because it does not expect an acknowledgment. Sending will be the same as delivering.
+
+- This back and forth is handled by the low level `ESP-NOW API` and you do not need to worry about it.
 - The source code is fully documented with block/inline comments for every function.
-- Encryption is not supported by this library. The reason is that makes it hard to properly parse the promiscuous packet to extract the frame. I recommend using encryption in higher level in your main sketch. [Crypto](https://github.com/OperatorFoundation/Crypto/blob/master/examples/AES128_Basics/AES128_Basics.ino) library is a great one to add encryption to your code. Pass the encrypted message and its length to `send(...)` function.
-- When WiFi mode is selected, the appropriate corresponding WiFi interface must be selected, otherwise will have issues. See `autoselect_if_from_mode(...)` for more.
-- Maximum 20 peers allowed (this is dictated by ESP-NOW API.)
-- Radiotap information (including RSSI) and complete ESP-NOW frame returned in the receive callback for more user control.
-- Peer management and peer reference list with last seen information.
-- Only TX data processing under the hood. RX data must be processed by the user. Can get the received messages in the function `onDataReceived(...)` which will be in your main sketch.
-- If destination is `NULL` in the `send()` function, message will be sent to all unicast peers as per ESP-NOW API.
--
+- Encryption is not supported by this library. The reason is that makes it hard to properly parse the promiscuous packet to extract the frame, and limits the number of peers. I recommend using encryption in higher level in your main sketch. [Crypto](https://github.com/OperatorFoundation/Crypto/blob/master/examples/AES128_Basics/AES128_Basics.ino) library is a great one to add encryption to your code. Pass the encrypted message and its length to `send(...)` function.
+- When WiFi mode is selected, the appropriate corresponding WiFi interface must be selected, otherwise will have issues with error `ESP_ERR_ESPNOW_IF`. See `autoselect_if_from_mode(...)` for more.
+
+```
+WIFI_MODE_STA  --->  WIFI_IF_STA
+WIFI_MODE_AP  --->  WIFI_IF_AP
+WIFI_MODE_APSTA  --->  WIFI_IF_AP or WIFI_IF_STA (will work either or, does not matter much)
+WIFI_MODE_NULL or WIFI_MODE_MAX  --->  useless for ESP-NOW
+```
+
+- The MAC address of this device will be correspondent to the WiFi interface selected. `WIFI_IF_STA` has a different MAC from `WIFI_IF_AP`
+
+* Maximum 20 peers allowed (this is dictated by ESP-NOW API.)
+* Radiotap information (including RSSI) and complete ESP-NOW frame returned in the receive callback for more user control.
+* Peer management and peer reference list with last seen information.
+* Synchronous (defaul mode) and asynchronus send mode. If synchronous, TX queue will default to size=1 and have only space for one message at a time. Next send will happen after the current sent and no packet drop will occur. If asynch. TX queue can keep more than one message and send them one after the other. If TX queue is full in asynch mode, the messages will be dropped.
+* Only TX data processing under the hood. RX data must be processed by the user. Can get the received messages in the function `onDataReceived(...)` which will be in your main sketch.
+* If destination is `NULL` in the `send()` function, message will be sent to all unicast peers as per ESP-NOW API.
+* When a peer is added, only the following info structure is used for the peer by `EasyEspNow` library:
+
+```c
+esp_now_peer_info_t peer_info;
+memcpy(peer_info.peer_addr, peer_addr_to_add, MAC_ADDR_LEN); // MAC address
+peer_info.ifidx = wifi_phy_interface; // setting WiFi interface
+peer_info.channel = wifi_primary_channel; // setting WiFi channel, must be the same that the device is on
+peer_info.encrypt = false; // encryption not supported
+```
+
+- When adding peers and some details about peer info structure:
+  - Once a peer is added, you cannot modify the MAC address of an existing peer using the `esp_now_mod_peer()` function. The MAC address is a fundamental identifier for the peer, and once a peer is added, its MAC address is fixed in the peer list. Better delete that peer and add again with proper MAC.
+  - Peer can be in a different WiFi interface from the home (this station) and still receive the message.
+  - This is more relevant to ESP-NOW API, encrypted peers are not accepted for multicast/broadcast addresses.
 
 ### API Functionality
 
@@ -173,3 +203,100 @@ typedef struct
 ```
 
 ### Some Words About Encryption
+
+This library does not support ESP-NOW API's encryption mechanism. However, it is important for me to share some of my findings related to the encryption. I think it may be useful to anyone that desires to use directly the `ESP-NOW API` Setting `PMK` only will not encrypt anything. You need to set the `LMK` for the specific peer to achieve `CCMP` level encryption for the frame. If encryption is successful, you will see that data will be encrypted in `Wireshark`. In my understanding, for every pair of peers you will need an `LMK`. Or you can use the same `LMK` across the board. For example:
+
+```txt
+There are 3 devices. Device A, B, C.
+There is the same `PMK` for all devices that needs to be set with `esp_now_set_pmk(const uint8_t *pmk);`
+In order for any of these devices to talk to each other in an encrypted way they need to have each other in the peer list and have the same `LMK`
+
+A has B as a peer AND
+B has A as a peer AND
+Both have the same `LMK` in the peer info
+=>> A and B can exchange encypted messages
+
+A has C as a peer AND
+C has A as a peer AND
+Both have the same `LMK` in the peer info
+=>> A and C can exchange encypted messages
+
+B has C as a peer AND
+C has B as a peer AND
+Both have the same `LMK` in the peer info
+=>> B and C can exchange encypted messages
+
+Now the above `LMKs` can be the same or different. It is important that between every 2 devices the `LMK is the same when they set each other as each other's peer.
+```
+
+```c
+uint8_t PMK[] = {0x1A, 0x2B, 0x3C, 0x4D, 0x5E, 0x6F, 0x7A, 0x8B, 0x9C, 0xAD, 0xBE, 0xCF, 0xDA, 0xEB, 0xFC, 0x0D};
+uint8_t LMK1[] = {0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A};
+uint8_t LMK2[] = {0xFB, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A};
+
+// On sketches for Device A, B, C
+esp_now_init();
+esp_now_set_pmk(PMK);
+
+// On device A adding B as a peer
+esp_now_peer_info_t peerInfo;
+memcpy(peerInfo.peer_addr, MAC_B, 6);
+peerInfo.channel = some_channel;
+peerInfo.encrypt = true;
+memcpy(peerInfo.lmk, LMK1, 16);
+esp_now_add_peer(&peerInfo);
+
+// On device B adding A as a peer
+esp_now_peer_info_t peerInfo;
+memcpy(peerInfo.peer_addr, MAC_A, 6);
+peerInfo.channel = some_channel;
+peerInfo.encrypt = true;
+memcpy(peerInfo.lmk, LMK1, 16);
+esp_now_add_peer(&peerInfo);
+/* Now A and B can talk in encrypted way using ESP-NOW API */
+
+///////////////////////////////////////////////////////////////////////
+// On device A adding C as a peer
+esp_now_peer_info_t peerInfo;
+memcpy(peerInfo.peer_addr, MAC_C, 6);
+peerInfo.channel = some_channel;
+peerInfo.encrypt = true;
+memcpy(peerInfo.lmk, LMK2, 16);
+esp_now_add_peer(&peerInfo);
+
+// On device C adding A as a peer
+esp_now_peer_info_t peerInfo;
+memcpy(peerInfo.peer_addr, MAC_A, 6);
+peerInfo.channel = some_channel;
+peerInfo.encrypt = true;
+memcpy(peerInfo.lmk, LMK2, 16);
+esp_now_add_peer(&peerInfo);
+
+/* Now A and C can talk in encrypted way using ESP-NOW API */
+
+///////////////////////////////////////////////////////////////////////
+// On device B adding C as a peer
+esp_now_peer_info_t peerInfo;
+memcpy(peerInfo.peer_addr, MAC_C, 6);
+peerInfo.channel = some_channel;
+peerInfo.encrypt = true;
+memcpy(peerInfo.lmk, LMK1, 16);
+esp_now_add_peer(&peerInfo);
+
+// On device C adding B as a peer
+esp_now_peer_info_t peerInfo;
+memcpy(peerInfo.peer_addr, MAC_B, 6);
+peerInfo.channel = some_channel;
+peerInfo.encrypt = true;
+memcpy(peerInfo.lmk, LMK1, 16);
+esp_now_add_peer(&peerInfo);
+
+/* Now B and C can talk in encrypted way using ESP-NOW API */
+
+/** Bottom line:
+ *  A uses LMK1 to talk to B and LMK2 to talk to C
+ *  B uses LMK1 to talk to A and LMK1 to talk to C
+ *  C uses LMK2 to talk to A and LMK1 to talk to B
+*/
+
+```

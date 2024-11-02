@@ -1,0 +1,20 @@
+{
+  "name": "EasyEspNow",
+  "frameworks": "Arduino",
+  "version": "1.0.0",
+  "keywords": "ESP-NOW, home-station, node, mesh, peers",
+  "platforms": ["espressif32"],
+  "description": "An easy-to-use ESP-NOW wrapper library for ESP platform that simplifies peer communication via ESP-NOW protocol and data handling.",
+  "url": "https://github.com/henriberisha/EasyEspNow.git",
+  "authors": {
+    "name": "Henri Berisha",
+    "email": "henri-berisha@hotmail.com",
+    "maintainer": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/henriberisha/EasyEspNow.git"
+  },
+  "examples": "examples/*/*.ino",
+  "license": "GPL-3.0-or-later"
+}
