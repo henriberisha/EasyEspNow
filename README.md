@@ -9,6 +9,7 @@
 [Boards Compatibility](#boards-compatibility)
 [TODO](#todos)
 [Technical Explanations ⚠️](#technical-explanations)
+[Debugger](#debugger)
 [EasyEspNow API Functionality](#api-functionality)
 [About Encryption](#some-words-about-encryption)
 
@@ -76,6 +77,37 @@ peer_info.encrypt = false; // encryption not supported
   - Once a peer is added, you cannot modify the MAC address of an existing peer using the `esp_now_mod_peer()` function. The MAC address is a fundamental identifier for the peer, and once a peer is added, its MAC address is fixed in the peer list. Better delete that peer and add again with proper MAC.
   - Peer can be in a different WiFi interface from the home (this station) and still receive the message.
   - This is more relevant to ESP-NOW API, encrypted peers are not accepted for multicast/broadcast addresses.
+
+### Debugger
+
+This library comes with an-out-of-the-box basic debugger with different log levels defined at this header file: `easy_debug.h`.
+
+- Any print in your sketch that uses `Serial.print` will not be affected by the log level.
+- In your main sketch you need to define the log level. Set to `LOG_NONE` if not interested in logs.
+- Set a `TAG` for the logging macros to use.
+- Logging macros can take arguments just like `printf` does to format your output and include variable values.
+
+```c
+// Define the log levels
+#define LOG_NONE 0 // to not output any logs
+#define LOG_MONITOR 1
+#define LOG_ERROR 2
+#define LOG_WARNING 3
+#define LOG_INFO 4
+#define LOG_DEBUG 5
+#define LOG_VERBOSE 6
+```
+
+Macros to help format and print a MAC address in upper case
+
+```c
+#define EASYMAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#define EASYMACSTR "%02X:%02X:%02X:%02X:%02X:%02X"
+
+// How to use in code
+uint8_t some_MAC[] = {0xCD, 0x56, 0x47, 0xFC, 0xAF, 0xB3};
+MONITOR(TAG, "Mac: " EASYMACSTR " This was some MAC address" , EASYMAC2STR(some_MAC));
+```
 
 ### API Functionality
 
