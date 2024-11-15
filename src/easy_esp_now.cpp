@@ -790,7 +790,7 @@ void EasyEspNow::easyEspNowTxQueueTask(void *pvParameters)
 
 			// add some delay to not overwhelm 'esp_now_send' method
 			// otherwise may get error: 'ESP_ERR_ESPNOW_NO_MEM'
-			// during debug set this higher than 10 to simulate delay
+			// during debug set this higher than 13 to simulate delay
 			// TX exhaust rate
 			vTaskDelay(pdMS_TO_TICKS(13));
 		}

@@ -45,6 +45,7 @@ At this time i am not sure if it will work with board versions `< 2.0.17`
 - `AllFunctions.ino` -> extended functionality showcasing full API
 - `ProcessRX.ino` -> how to process RX messages in the main sketch by the user in a similar fashion how TX is processed by the library in the background. This also shows how TX and RX happen together in the same runtime. Note: You will need another device that is sending data either to Broadcast MAC or Receiver device MAC.
 - `EncryptedSender.ino` and `EncryptedReceiver.ino` -> these sketches show how to encrypt data in user level and send it encrypted. On the other hand, data is received, decrypted. This example was needed because user must have the ability to send encrypted data. For now this library does not support the native `ESP-NOW` encryption which requires setting `PMK` and `LMK`.
+  ![Photo: Encrypted Sent, Decrypted after Receiving ](/send_encrypted_receive_decrypt.png)
 
 ### Technical Explanations
 
