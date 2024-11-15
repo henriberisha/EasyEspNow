@@ -4,15 +4,16 @@
 
 ## Contents
 
-[Credits & Disclaimer](#credits--disclaimer)
-[ESP-NOW References](#esp-now-references)
-[Boards Compatibility](#boards-compatibility)
-[TODO](#todos)
+[Credits & Disclaimer 🏆](#credits--disclaimer)
+[ESP-NOW References 📚](#esp-now-references)
+[Boards Compatibility ⬇️](#boards-compatibility)
+[TODO ↗️](#todos)
+[Examples 👀💡](#examples)
 [Technical Explanations ⚠️](#technical-explanations)
-[Debugger](#debugger)
-[EasyEspNow API Functionality](#api-functionality)
-[Guide How to use send() depending on mode]
-[About Encryption](#some-words-about-encryption)
+[Debugger 🐛](#debugger)
+[EasyEspNow API Functionality 📝🔍](#api-functionality)
+[Guide How to use send() depending on mode 📜](#guide-on-using-send-to-avoid-packet-drop)
+[About Encryption 🔐 🔓](#some-words-about-encryption)
 
 ### Credits & Disclaimer
 
@@ -34,8 +35,16 @@ At this time i am not sure if it will work with board versions `< 2.0.17`
 
 ### TODOs
 
+- Extend functionality to support native CCMP encryption by setting `PMK` globally and `LMK` per peer.
 - Extend this library to work for `ESP8266` boards. Currently i do not have the time bandwidth to work on it.
 - Modify this library to work for board versions `>= 3.x`
+
+### Examples
+
+- `QuickStart.ino` -> basic functionality, START HERE
+- `AllFunctions.ino` -> extended functionality showcasing full API
+- `ProcessRX.ino` -> how to process RX messages in the main sketch by the user in a similar fashion how TX is processed by the library in the background. This also shows how TX and RX happen together in the same runtime. Note: You will need another device that is sending data either to Broadcast MAC or Receiver device MAC.
+- `EncryptedSender.ino` and `EncryptedReceiver.ino` -> these sketches show how to encrypt data in user level and send it encrypted. On the other hand, data is received, decrypted. This example was needed because user must have the ability to send encrypted data. For now this library does not support the native `ESP-NOW` encryption which requires setting `PMK` and `LMK`.
 
 ### Technical Explanations
 

@@ -129,7 +129,7 @@ easy_send_error_t EasyEspNow::send(const uint8_t *dstAddress, const uint8_t *pay
 	}
 
 	int enqueued_tx_messages = uxQueueMessagesWaiting(txQueue);
-	DEBUG(TAG_CORE, "Queue status (Enqueued | Capacity) -> %d | %d\n", enqueued_tx_messages, easyEspNow.tx_queue_size);
+	DEBUG(TAG_CORE, "TX Queue Status (Enqueued | Capacity) -> %d | %d\n", enqueued_tx_messages, easyEspNow.tx_queue_size);
 
 	// in synch mode wait here until the message in the queue is removed and sent
 	if (this->synchronous_send)
