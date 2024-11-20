@@ -103,6 +103,46 @@ bool EasyEspNow::begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q
 	return true;
 }
 
+bool EasyEspNow::setPMK(const uint8_t *pmk_to_set)
+{
+	if (pmk_to_set == nullptr)
+	{
+		WARNING(TAG_CORE, "PMK cannot be null. Continuing without setting PMK!");
+		return false;
+	}
+
+	err = esp_now_set_pmk(pmk_to_set);
+	if (err == ESP_OK)
+	{
+		MONITOR(TAG_CORE, "Success setting PMK - Primary Master Key! Now you can add encrypted PEERS with their respective LMK.");
+		pmk_is_set = true;
+		memcpy(pmk, pmk_to_set, KEY_LENGTH);
+		return true;
+	}
+	else
+	{
+		WARNING(TAG_CORE, "Failed setting PMK - Primary Master Key! Internal error: %s. Continuing without setting PMK!", esp_err_to_name(err));
+		return false;
+	}
+}
+
+bool EasyEspNow::getPMK(uint8_t *pmk_buff)
+{
+	if (pmk_buff == nullptr)
+	{
+		WARNING(TAG_CORE, "Cannot get PMK! Buffer provided is null!");
+		return false;
+	}
+	if (pmk_is_set == false)
+	{
+		WARNING(TAG_CORE, "Cannot get PMK! PMK is not set yet!");
+		return false;
+	}
+
+	memcpy(pmk_buff, pmk, KEY_LENGTH);
+	return true;
+}
+
 void EasyEspNow::stop()
 {
 	MONITOR(TAG_CORE, "----------> STOPPING ESP-NOW");

@@ -18,7 +18,7 @@ static uint8_t ESPNOW_BROADCAST_ADDRESS[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 static const uint8_t MIN_WIFI_CHANNEL = 0; // if channel would be 0, then set the channel to the default/ or the channel that the radio is actually on
 static const uint8_t MAX_WIFI_CHANNEL = 14;
 static const uint8_t MAC_ADDR_LEN = ESP_NOW_ETH_ALEN; ///< @brief Address length
-static const uint8_t LMK_LENGTH = ESP_NOW_KEY_LEN;
+static const uint8_t KEY_LENGTH = ESP_NOW_KEY_LEN;
 static const uint8_t MAX_TOTAL_PEER_NUM = ESP_NOW_MAX_TOTAL_PEER_NUM;
 static const uint8_t MAX_ENCRYPT_PEER_NUM = ESP_NOW_MAX_ENCRYPT_PEER_NUM;
 static const uint8_t MAX_DATA_LENGTH = ESP_NOW_MAX_DATA_LEN;
@@ -64,6 +64,22 @@ public:
 	 * @return `true` if success, `false` if some error ocurred
 	 */
 	bool begin(uint8_t channel, wifi_interface_t phy_interface, int tx_q_size = 1, bool synch_send = true) override;
+
+	/**
+	 * @brief setter function for PMK
+	 * @param pmk Buffer that contains the desired PMK. Make sure the buffer has a length of 16
+	 * @return `true` if success, `false` if some error ocurred
+	 * @note Important for the buffer to have a length of 16, otherwise may not work properly
+	 */
+	bool setPMK(const uint8_t *pmk);
+
+	/**
+	 * @brief getter function for PMK that was previously set
+	 * @param pmk_buff Buffer that the user provides to copy the PMK into. Make sure the buffer has a length of 16
+	 * @return `true` if success, `false` if some error ocurred
+	 * @note Important for the provided buffer to have a length of 16, otherwise may not work properly
+	 */
+	bool getPMK(uint8_t *pmk_buff);
 
 	/**
 	 * @brief stops ESP-NOW and TX task
@@ -354,6 +370,9 @@ public:
 protected:
 	uint8_t zero_mac[MAC_ADDR_LEN] = {0}; // {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	uint8_t my_mac_address[MAC_ADDR_LEN] = {0};
+
+	bool pmk_is_set = false;
+	uint8_t pmk[KEY_LENGTH] = {0};
 
 	int tx_queue_size;
 	bool synchronous_send;

@@ -139,6 +139,8 @@ To use the `EasyEspNow` library in a main sketch, include `EasyEspNow.h` header 
 
 ```c
 begin(channel, phy_interface, tx_q_size, synch_send) // begin everything, set channel, wifi interface, tx queue size, synchronous send. If synch. send true => tx size will default to 1
+setPMK(pmk_to_set) // set Primary Master Key - PMK, must have length of 16 bytes
+getPMK(pmk_buff) // get PMK, copy content into the buffer that user provided
 stop() // stop everything
 easy_send_error_t send(dstAddress, payload, payload_len) // to enqueu message for send with specific length to destination address
 easy_send_error_t sendBroadcast(payload, payload_len) // just a call to send() with Broadcast address as destination
