@@ -26,6 +26,7 @@ static const uint8_t MAX_DATA_LENGTH = ESP_NOW_MAX_DATA_LEN;
 typedef struct
 {
 	uint8_t mac[MAC_ADDR_LEN];
+	bool encrypted;
 	uint32_t time_peer_added;
 } peer_t;
 
@@ -150,11 +151,13 @@ public:
 	/* ==========> Peer Management Functions <========== */
 
 	/**
-	 * @brief Adds peer with provided MAC address
+	 * @brief Adds peer with provided MAC address, and can encrypt it with LMK if provided
 	 * @param peer_addr_to_add Peer to add
+	 * @param lmk Pointer to the buffer that contains user provided LMK
 	 * @return `true` if success adding peer, `false` if failed adding peer
+	 * @note By default, `lmk` is nullptr, if not null then peer will be encrypted. Make sure it is 16 bytes
 	 */
-	bool addPeer(const uint8_t *peer_addr_to_add);
+	bool addPeer(const uint8_t *peer_addr_to_add, const uint8_t *lmk = nullptr);
 
 	/**
 	 * @brief Deletes peer with provided MAC address

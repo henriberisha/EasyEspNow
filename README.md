@@ -4,16 +4,16 @@
 
 ## Contents
 
-[Credits & Disclaimer 🏆](#credits--disclaimer)
-[ESP-NOW References 📚](#esp-now-references)
-[Boards Compatibility ⬇️](#boards-compatibility)
-[TODO ↗️](#todos)
-[Examples 👀💡](#examples)
-[Technical Explanations ⚠️](#technical-explanations)
-[Debugger 🐛](#debugger)
-[EasyEspNow API Functionality 📝🔍](#api-functionality)
-[Guide How to use send() depending on mode 📜](#guide-on-using-send-to-avoid-packet-drop)
-[About Encryption 🔐 🔓](#some-words-about-encryption)
+- [Credits & Disclaimer 🏆](#credits--disclaimer)
+- [ESP-NOW References 📚](#esp-now-references)
+- [Boards Compatibility ⬇️](#boards-compatibility)
+- [TODO ↗️](#todos)
+- [Examples 👀💡](#examples)
+- [Technical Explanations ⚠️](#technical-explanations)
+- [Debugger 🐛](#debugger)
+- [EasyEspNow API Functionality 📝🔍](#api-functionality)
+- [Guide How to use send() depending on mode 📜](#guide-on-using-send-to-avoid-packet-drop)
+- [About Encryption 🔐 🔓](#some-words-about-encryption)
 
 ### Credits & Disclaimer
 
@@ -153,12 +153,13 @@ onDataSent(frame_sent_cb) // to register user defined callback function upon sen
 
 #### ===> Peer Management Functions
 
-Peer Management involves having a defined structure that keeps track of the peers added. ESP-NOW low level API does not have a proper way to deliver that. hence it is needed to have a reference of the peers in Higher level to allow more flexibility. The change in these structures happens in parallel with what ESP-NOW does in lower level such as when adding or deleting peers
+Peer Management involves having a defined structure that keeps track of the peers added. ESP-NOW low level API does not have a proper way to deliver that. Hence it is needed to have a reference of the peers in Higher level to allow more flexibility. The change in these structures happens in parallel with what ESP-NOW does in lower level such as when adding or deleting peers. Good to keep track of last time peer added and if it is encrypted or no.
 
 ```c
 typedef struct
 {
 	uint8_t mac[MAC_ADDR_LEN]; // MAC address of the peer
+    bool encrypted; // flag to keep track if peer encrypted or no
 	uint32_t time_peer_added; // last time a peer was seen; millis()
 } peer_t;
 
@@ -170,7 +171,7 @@ typedef struct
 ```
 
 ```c
-addPeer(peer_addr_to_add) // add peer with provided MAC address
+addPeer(peer_addr_to_add, lmk = nullptr) // add peer with provided MAC address, and encrypts it with LMK if not nullptr, o/w unencrypted
 deletePeer(peer_addr_to_delete); // delete peer with provided MAC address
 uint8_t *deletePeer(keep_broadcast_addr = true) // this deletes the oldest peer and returns its MAC. It can delete the broadcast peer too if it is the oldest and `keep_broadcast_addr = false`
 peer_t *getPeer(peer_addr_to_get, esp_now_peer_info_t &peer_info) // returns peer_t structure for the peer and puts the info in the peer_info structure

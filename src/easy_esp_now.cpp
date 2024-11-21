@@ -276,23 +276,36 @@ void EasyEspNow::onDataSent(frame_sent_data frame_sent_cb)
 
 /* ==========> Peer Management Functions <========== */
 
-bool EasyEspNow::addPeer(const uint8_t *peer_addr_to_add)
+bool EasyEspNow::addPeer(const uint8_t *peer_addr_to_add, const uint8_t *lmk)
 {
+	// multicast/broadcast peers cannot be encrypted,
+	// that is why we need to check the LSB for the first byte of MAC if it is 1
+	bool condition_to_not_encrypt = (lmk == nullptr || peer_addr_to_add[0] & 0x01);
 	// peer can be in a different interface from the home (this station) and still receive the message.
 	esp_now_peer_info_t peer_info;
 	memcpy(peer_info.peer_addr, peer_addr_to_add, MAC_ADDR_LEN);
 	peer_info.ifidx = wifi_phy_interface; // this does not really matter to set it the same as the peer. This is relevant to the home station WiFi mode and interface. ESP_ERR_ESPNOW_IF
 	peer_info.channel = wifi_primary_channel;
-	peer_info.encrypt = false;
+	if (condition_to_not_encrypt)
+		peer_info.encrypt = false;
+	else
+	{
+		peer_info.encrypt = true;
+		memcpy(peer_info.lmk, lmk, KEY_LENGTH);
+	}
 
 	err = esp_now_add_peer(&peer_info);
 	if (err == ESP_OK)
 	{
-		memcpy(peer_list.peer[peer_list.peer_number].mac, peer_addr_to_add, MAC_ADDR_LEN);
-		peer_list.peer[peer_list.peer_number].time_peer_added = millis();
-		peer_list.peer_number++;
+		memcpy(peer_list.peer[peer_list.peer_number].mac, peer_addr_to_add, MAC_ADDR_LEN); // set MAC
+		if (condition_to_not_encrypt)
+			peer_list.peer[peer_list.peer_number].encrypted = false; // set Encrypted or no
+		else
+			peer_list.peer[peer_list.peer_number].encrypted = true;
+		peer_list.peer[peer_list.peer_number].time_peer_added = millis(); // set last seen
+		peer_list.peer_number++;										  // increment total number
 
-		MONITOR(TAG_PEERS, "Successfully added peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_addr_to_add), peer_list.peer_number);
+		MONITOR(TAG_PEERS, "Successfully added %s PEER: [" EASYMACSTR "]. Total peers = %d", condition_to_not_encrypt == true ? "UNENCRYPTED" : "ENCRYPTED", EASYMAC2STR(peer_addr_to_add), peer_list.peer_number);
 		return true;
 	}
 	else
@@ -470,7 +483,7 @@ void EasyEspNow::printPeerList()
 	Serial.printf("\n\nPrinting Peer List! Number of peers %d\n", peer_list.peer_number);
 	for (int i = 0; i < peer_list.peer_number; i++)
 	{
-		Serial.printf("Peer [" EASYMACSTR "] with timestamp %lu is %d ms old\n", MAC2STR(peer_list.peer[i].mac), peer_list.peer[i].time_peer_added, millis() - peer_list.peer[i].time_peer_added);
+		Serial.printf("%s peer [" EASYMACSTR "] with timestamp %lu is %d ms old\n", peer_list.peer[i].encrypted == true ? "ENCRYPTED" : "UNENCRYPTED", MAC2STR(peer_list.peer[i].mac), peer_list.peer[i].time_peer_added, millis() - peer_list.peer[i].time_peer_added);
 	}
 	Serial.printf("\n\n");
 }

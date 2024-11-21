@@ -8,6 +8,8 @@ Upgrade to extend functionality to support native CCMP encryption by setting PMK
 
 - Added member function `getPMK(uint8_t *pmk_buff)` to get/retrieve the PMK that was previously set. Copies the content into the buffer that user provides.
 - Changed name of static variable from `LMK_LENGTH` to `KEY_LENGTH` to make it more general as both **PMK** and **LMK** have the same length of **16** bytes each.
+- Added `bool encrypted` flag in `peer_t` structure to keep track if a peer is encrypted or no.
+- Added argument `lmk` to the function `addPeer()` to encrypt the peer. If null, peer will not be encrypted.
 
 ## EasyEspNow 1.0.0 (November 2024)
 
