@@ -23,6 +23,7 @@
       - [===\> Important Structures](#-important-structures)
     - [Guide on using `send()` to avoid packet drop](#guide-on-using-send-to-avoid-packet-drop)
     - [Some Words About Encryption](#some-words-about-encryption)
+    - [Sender - Receiver Relationship](#sender---receiver-relationship)
 
 ### Credits & Disclaimer
 
@@ -461,3 +462,29 @@ esp_now_add_peer(&peerInfo);
 */
 
 ```
+
+### Sender - Receiver Relationship
+
+(U) -> Unencrypted
+(E) -> Encrypted
+
+| Sender Station         | Receiver Station                                | LMK                      | Receive Callback Called (rx_cb) | Delivery Status            |
+| ---------------------- | ----------------------------------------------- | ------------------------ | ------------------------------- | -------------------------- |
+| Broadcast (U)          | To receive broadcast, no need to have any peers | n/a                      | YES                             | ESP_NOW_SEND_SUCCESS       |
+| Receiver as a Peer (E) | Sender as a Peer (E)                            | SAME                     | YES                             | ESP_NOW_SEND_SUCCESS (ACK) |
+| Receiver as a Peer (E) | Sender as a Peer (E)                            | DIFFERENT                | NO                              | ESP_NOW_SEND_SUCCESS (ACK) |
+| Receiver as a Peer (E) | Sender not a Peer                               | Only in Sender Station   | NO                              | ESP_NOW_SEND_SUCCESS (ACK) |
+| Receiver as a Peer (U) | Sender as a Peer (E)                            | Only in Receiver Station | NO                              | ESP_NOW_SEND_SUCCESS (ACK) |
+| Receiver as a Peer (U) | Sender as a Peer (U)                            | n/a                      | YES                             | ESP_NOW_SEND_SUCCESS (ACK) |
+| Receiver as a Peer (U) | Sender not a Peer                               | n/a                      | YES                             | ESP_NOW_SEND_SUCCESS (ACK) |
+| Receiver as a Peer (U) | Receiver Station is Down                        | n/a                      | NO                              | ESP_NOW_SEND_FAIL          |
+
+**Bottom Line**
+
+- Sender always must have the receiver MAC as a peer. Including broadcast MAC address.
+- For the receiver to get the message, from the sender communication needs to happen as:
+  - Broadcast unencrypted always
+  - Unicast unencrypted without receiver having sender as a peer
+  - Unicast unencrypted with receiver having sender as a peer
+  - Unicast encrypted without receiver having sender as a peer and both sharing the `same LMK`
+- `Delivery` status can be missleading because a receiver will always send `ACK` frame back to the sender whenever an `Action Frame` gets received. The `ACK` triggers `ESP_NOW_SEND_SUCCESS`
