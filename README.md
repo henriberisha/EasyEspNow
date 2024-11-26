@@ -486,5 +486,5 @@ esp_now_add_peer(&peerInfo);
   - Broadcast unencrypted always
   - Unicast unencrypted without receiver having sender as a peer
   - Unicast unencrypted with receiver having sender as a peer
-  - Unicast encrypted without receiver having sender as a peer and both sharing the `same LMK`
+  - Unicast encrypted with receiver having sender as a peer and both sharing the `same LMK`
 - `Delivery` status can be missleading because a receiver will always send `ACK` frame back to the sender whenever an `Action Frame` gets received. The `ACK` triggers `ESP_NOW_SEND_SUCCESS`
