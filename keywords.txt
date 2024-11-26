@@ -4,6 +4,8 @@ EasyEspNow           KEYWORD1
 
 # Functions
 begin               KEYWORD1
+setPMK              KEYWORD1
+getPMK              KEYWORD1
 stop             KEYWORD1
 send           KEYWORD1
 sendBroadcast           KEYWORD1
@@ -45,7 +47,9 @@ MAX_ENCRYPT_PEER_NUM         KEYWORD2
 MAX_DATA_LENGTH         KEYWORD2
 
 # Custom Types
+espnow_frame_header_common_t    KEYWORD3
 espnow_frame_format_t        KEYWORD3
+espnow_frame_format_ccmp_t        KEYWORD3
 espnow_frame_recv_info_t        KEYWORD3
 frame_rcvd_data        KEYWORD3
 frame_sent_data        KEYWORD3
@@ -54,5 +58,3 @@ peer_t        KEYWORD3
 peer_list_t        KEYWORD3
 CountPeers        KEYWORD3
 tx_queue_item_t        KEYWORD3
-espnow_frame_format_t        KEYWORD3
-espnow_frame_format_t        KEYWORD3

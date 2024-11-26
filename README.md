@@ -1,19 +1,28 @@
 # An easy-to-use ESP-NOW wrapper library for ESP32 platform that simplifies peer communication and data handling.
 
+## New update in the library since EasyEspNow V2.0.0, supports CCMP encryption by setting `PMK` globally and encrypting each peer with an `LMK`.
+
 ---
 
 ## Contents
 
-- [Credits & Disclaimer 🏆](#credits--disclaimer)
-- [ESP-NOW References 📚](#esp-now-references)
-- [Boards Compatibility ⬇️](#boards-compatibility)
-- [TODO ↗️](#todos)
-- [Examples 👀💡](#examples)
-- [Technical Explanations ⚠️](#technical-explanations)
-- [Debugger 🐛](#debugger)
-- [EasyEspNow API Functionality 📝🔍](#api-functionality)
-- [Guide How to use send() depending on mode 📜](#guide-on-using-send-to-avoid-packet-drop)
-- [About Encryption 🔐 🔓](#some-words-about-encryption)
+- [An easy-to-use ESP-NOW wrapper library for ESP32 platform that simplifies peer communication and data handling.](#an-easy-to-use-esp-now-wrapper-library-for-esp32-platform-that-simplifies-peer-communication-and-data-handling)
+  - [New update in the library since EasyEspNow V2.0.0, supports CCMP encryption by setting `PMK` globally and encrypting each peer with an `LMK`.](#new-update-in-the-library-since-easyespnow-v200-supports-ccmp-encryption-by-setting-pmk-globally-and-encrypting-each-peer-with-an-lmk)
+  - [Contents](#contents)
+    - [Credits \& Disclaimer](#credits--disclaimer)
+    - [ESP-NOW References](#esp-now-references)
+    - [Boards Compatibility](#boards-compatibility)
+    - [TODOs](#todos)
+    - [Examples](#examples)
+    - [Technical Explanations](#technical-explanations)
+    - [Debugger](#debugger)
+    - [API Functionality](#api-functionality)
+      - [===\> Core Functions](#-core-functions)
+      - [===\> Peer Management Functions](#-peer-management-functions)
+      - [===\> Miscellaneous Functions](#-miscellaneous-functions)
+      - [===\> Important Structures](#-important-structures)
+    - [Guide on using `send()` to avoid packet drop](#guide-on-using-send-to-avoid-packet-drop)
+    - [Some Words About Encryption](#some-words-about-encryption)
 
 ### Credits & Disclaimer
 
@@ -30,12 +39,11 @@ If you are looking for a more mature library i would strongly advise you to look
 
 ### Boards Compatibility
 
-I have build `EasyEspNow` library for ESP32 board version `2.0.17` This library will not work with board versions `3.x` due to some low level API differences. In addition, I have not setup the development environment for boards `3.x` and that has been a limitation for me.
+I have built `EasyEspNow` library for ESP32 board version `2.0.17` This library will not work with board versions `3.x` due to some low level API differences. In addition, I have not setup the development environment for boards `3.x` and that has been a limitation for me.
 At this time i am not sure if it will work with board versions `< 2.0.17`
 
 ### TODOs
 
-- Extend functionality to support native CCMP encryption by setting `PMK` globally and `LMK` per peer.
 - Extend this library to work for `ESP8266` boards. Currently i do not have the time bandwidth to work on it.
 - Modify this library to work for board versions `>= 3.x`
 
@@ -44,14 +52,14 @@ At this time i am not sure if it will work with board versions `< 2.0.17`
 - `QuickStart.ino` -> basic functionality, START HERE
 - `AllFunctions.ino` -> extended functionality showcasing full API
 - `ProcessRX.ino` -> how to process RX messages in the main sketch by the user in a similar fashion how TX is processed by the library in the background. This also shows how TX and RX happen together in the same runtime. Note: You will need another device that is sending data either to Broadcast MAC or Receiver device MAC.
-- `EncryptedSender.ino` and `EncryptedReceiver.ino` -> these sketches show how to encrypt data in user level and send it encrypted. On the other hand, data is received, decrypted. This example was needed because user must have the ability to send encrypted data. For now this library does not support the native `ESP-NOW` encryption which requires setting `PMK` and `LMK`.
+- `EncryptedSender.ino` and `EncryptedReceiver.ino` -> these sketches show how to encrypt data in user level and send it encrypted. On the other hand, data is received, decrypted. This example was needed because user must have the ability to send encrypted data. In the past version V1.0.0 this library did not support the native `ESP-NOW` encryption which requires setting `PMK` and `LMK`. Now it does. What you can do, is encrypt in user level, and still send it as encrypted by leveraging CCMP encryption that is not handled. Still in the receiving end, you will have to decrypt to original message. Cool huh, now you have 2 layers of encryption.
   ![Photo: Encrypted Sent, Decrypted after Receiving ](/send_encrypted_receive_decrypt.png)
 
 ### Technical Explanations
 
 - It is possible to use `Wireshark` to sniff promiscuous `ESP-NOW` packets in `802.11`. You will need to put in monitor mode, have a network card that supports monitor mode such as an `Alfa`. In addition, you will need to set the channel in which you are monitoring to match the channel that `ESP-NOW` communication is happening. Filter for `Action Frames` => `wlan.fc.type_subtype == 0x000d`.
 - In `unicast`, a device sends `ESP-NOW` message with an `Action Frame` and the receiver should reply with `ACK` frame => `wlan.fc.type_subtype == 0x001d`.
-- A device can send a message successfully, but that does not mean that the `Delivery status` is `true`. Delivery is true only when the receiver responds to the sender with the `ACK` frame. Basically sending does not mean delivery.
+- A device can send a message successfully, but that does not mean that the `Delivery status` is `true`. Delivery is true only when the receiver responds to the sender with the `ACK` frame. Basically sending does not mean delivery. However, due to peer relationships, a device can still send `ACK` but internally the receive calback function `rx_cb` will not be called because in lower level in does not know what to do.
 - For `broadcast`, `Delivery` is always `true` because it does not expect an acknowledgment. Sending will be the same as delivering.
 
 - This back and forth is handled by the low level `ESP-NOW API` and you do not need to worry about it.
@@ -68,26 +76,45 @@ WIFI_MODE_NULL or WIFI_MODE_MAX  --->  useless for ESP-NOW
 
 - The MAC address of this device will be correspondent to the WiFi interface selected. `WIFI_IF_STA` has a different MAC from `WIFI_IF_AP`
 
-* Maximum 20 peers allowed (this is dictated by ESP-NOW API.)
-* Radiotap information (including RSSI) and complete ESP-NOW frame returned in the receive callback for more user control.
-* Peer management and peer reference list with last seen information.
-* Synchronous (defaul mode) and asynchronus send mode. If synchronous, TX queue will default to size=1 and have only space for one message at a time. Next send will happen after the current sent and no packet drop will occur. If asynch. TX queue can keep more than one message and send them one after the other. If TX queue is full in asynch mode, the messages will be dropped.
-* Only TX data processing under the hood. RX data must be processed by the user. Can get the received messages in the function `onDataReceived(...)` which will be in your main sketch.
-* If destination is `NULL` in the `send()` function, message will be sent to all unicast peers as per ESP-NOW API.
-* When a peer is added, only the following info structure is used for the peer by `EasyEspNow` library:
+- ⭐ Library now supports `CCMP` encryption. User must provide a `PMK` globally and encrypt peers with `LMK`. `PMK` is used to encrypt `LMK` with the AES-128 algorithm. `esp_now_set_pmk()` is called to set `PMK`. If `PMK` is not set, `ESP-NOW` has a default `PMK` which can be used. However, for safety reasons, I made it that you cannot encrypt peers if you do not set a `PMK` first. Letting the API to use a default PMK is not safe anyways.
+- ⚠️ A peer cannot be encrypted if: `LMK is nullptr` OR `peer's MAC is multicast/broadcast` OR `PMK has not been set yet`.
+- Maximum `20` peers allowed, and the paired encryption devices are no more than `17`, the default is `7` (this is dictated by ESP-NOW API.)
+- If you want to change the number of paired encryption devices, set `CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM` in configuration. I personally advise against this. Just keep it `7`.
+- Radiotap information (including RSSI) and complete ESP-NOW frame returned in the receive callback for more user control.
+- Peer management and peer reference list with last seen information.
+- Synchronous (defaul mode) and asynchronus send mode. If synchronous, TX queue will default to size=1 and have only space for one message at a time. Next send will happen after the current sent and no packet drop will occur. If asynch. TX queue can keep more than one message and send them one after the other. If TX queue is full in asynch mode, the messages will be dropped.
+- Only TX data processing under the hood. RX data must be processed by the user. Can get the received messages in the function `onDataReceived(...)` which will be in your main sketch.
+- If destination is `NULL` in the `send()` function, message will be sent to all unicast peers as per ESP-NOW API.
+- When a peer is added, the following code takes place in `EasyEspNow` library:
 
 ```c
+...
+bool condition_to_not_encrypt = (lmk == nullptr || peer_addr_to_add[0] & 0x01 || pmk_is_set == false);
+// peer can be in a different interface from the home (this station) and still receive the message.
 esp_now_peer_info_t peer_info;
-memcpy(peer_info.peer_addr, peer_addr_to_add, MAC_ADDR_LEN); // MAC address
-peer_info.ifidx = wifi_phy_interface; // setting WiFi interface
-peer_info.channel = wifi_primary_channel; // setting WiFi channel, must be the same that the device is on
-peer_info.encrypt = false; // encryption not supported
+memset(&peer_info, 0, sizeof(peer_info)); // set everything to zero
+memcpy(peer_info.peer_addr, peer_addr_to_add, MAC_ADDR_LEN);
+peer_info.ifidx = wifi_phy_interface; // this does not really matter to set it the same as the peer. This is relevant to the home station WiFi mode and interface. ESP_ERR_ESPNOW_IF
+peer_info.channel = wifi_primary_channel;
+if (condition_to_not_encrypt)
+    peer_info.encrypt = false;
+else
+{
+    peer_info.encrypt = true;
+    memcpy(peer_info.lmk, lmk, KEY_LENGTH);
+}
+
+err = esp_now_add_peer(&peer_info);
+...
 ```
 
 - When adding peers and some details about peer info structure:
   - Once a peer is added, you cannot modify the MAC address of an existing peer using the `esp_now_mod_peer()` function. The MAC address is a fundamental identifier for the peer, and once a peer is added, its MAC address is fixed in the peer list. Better delete that peer and add again with proper MAC.
   - Peer can be in a different WiFi interface from the home (this station) and still receive the message.
   - This is more relevant to ESP-NOW API, encrypted peers are not accepted for multicast/broadcast addresses.
+  - Peer can be encrypted with `LMK`. Same device can have different peers with different `LMKs`. Or all peers can have the same `LMK`.
+  - When encrypting, a `sender` must have the `receiver` as encrypted peer, and the `receiver` must have the `sender` as encrypted peer. Both using the same `LMK` and `PMK` for encryption.
+  - `esp_now_peer_info` structure has a pointer for private data that a user can set for a peer. I do not implement this because I was having issues setting such data. I think there is a bug in the `ESP NOW` API. This pointer is called: `void *priv;` /\*_< ESPNOW peer private data _/
 
 ### Debugger
 
@@ -160,7 +187,7 @@ typedef struct
 {
 	uint8_t mac[MAC_ADDR_LEN]; // MAC address of the peer
     bool encrypted; // flag to keep track if peer encrypted or no
-	uint32_t time_peer_added; // last time a peer was seen; millis()
+	uint32_t time_peer_added = 0; // last time a peer was seen; millis()
 } peer_t;
 
 typedef struct
@@ -171,7 +198,7 @@ typedef struct
 ```
 
 ```c
-addPeer(peer_addr_to_add, lmk = nullptr) // add peer with provided MAC address, and encrypts it with LMK if not nullptr, o/w unencrypted
+addPeer(peer_addr_to_add, lmk = nullptr) // add peer with provided MAC address, and encrypts it with LMK
 deletePeer(peer_addr_to_delete); // delete peer with provided MAC address
 uint8_t *deletePeer(keep_broadcast_addr = true) // this deletes the oldest peer and returns its MAC. It can delete the broadcast peer too if it is the oldest and `keep_broadcast_addr = false`
 peer_t *getPeer(peer_addr_to_get, esp_now_peer_info_t &peer_info) // returns peer_t structure for the peer and puts the info in the peer_info structure
@@ -206,10 +233,11 @@ switchChannel(uint8_t primary, wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE
 ```c
 /**
  * https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_now.html#frame-format
- * ESP-NOW Unencrypted frame format, without (CCMP)
  * This would be the promiscuous packet
  * It is an Action frame. On 802.11 managment type (0), subtype 0x0d (13)
  */
+
+// These are common fields of the MAC header for both encrypted and unencrypted frames
 typedef struct
 {
     unsigned protocol : 2;
@@ -221,30 +249,55 @@ typedef struct
     uint8_t source_address[6];
     uint8_t broadcast_address[6];
     uint16_t sequence_control;
+} __attribute__((packed)) espnow_frame_header_common_t;
 
-    uint8_t category_code;
+// Unencrypted frame as a promiscuous packet in ESP
+typedef struct
+{
+    espnow_frame_header_common_t esp_now_frame_header;
+    uint8_t category_code;              // 0x7f ; set to the value (127)
     uint8_t organization_identifier[3]; // 0x18fe34
     uint8_t random_values[4];
     struct
     {
         uint8_t element_id;                 // 0xdd ; set to the value (221)
-        uint8_t length;                     //
+        uint8_t length;                     // The length is the total length of Organization Identifier, Type, Version and Body
         uint8_t organization_identifier[3]; // 0x18fe34
-        uint8_t type;                       // 4
-        uint8_t version;
+        uint8_t type;                       // 0x04 ; the Type field is set to the value (4) indicating ESP-NOW
+        uint8_t version;                    // the Version field is set to the version of ESP-NOW.
         uint8_t body[0];
     } vendor_specific_content;
 } __attribute__((packed)) espnow_frame_format_t;
 
-/**
- * This is the structure that is returned to the user in the receive callback function
- * It contains all the radio header information, and the complete frame
- * This gives user more control on the code
-*/
+// Encrypted CCMP frame promiscuous packet in ESP
 typedef struct
 {
-    wifi_pkt_rx_ctrl_t *radio_header;  // radio metadata includin rssi and much more
-    espnow_frame_format_t *esp_now_frame;  // complete above frame
+    espnow_frame_header_common_t esp_now_frame_header;
+    uint8_t ccmp_parameters[8];
+
+    // The rest are the decrypted fields. If you are sniffing in Wireshark the raw 802.11 packets, you will not see the below, only the encrypted data
+    // You can see the following if you print the raw bytes of the packets
+    uint8_t category_code;              // 0x7f ; set to the value (127)
+    uint8_t organization_identifier[3]; // 0x18fe34
+    uint8_t random_values[4];
+    struct
+    {
+        uint8_t element_id;                 // 0xdd ; set to the value (221)
+        uint8_t length;                     // The length is the total length of Organization Identifier, Type, Version and Body
+        uint8_t organization_identifier[3]; // 0x18fe34
+        uint8_t type;                       // 0x04 ; the Type field is set to the value (4) indicating ESP-NOW
+        uint8_t version;                    // the Version field is set to the version of ESP-NOW.
+        uint8_t body[0];
+    } vendor_specific_content;
+} __attribute__((packed)) espnow_frame_format_ccmp_t;
+
+// If frame received is unencrypted -> `ccmp_encrypted_frame` must be nullptr
+// If frame received is encrypted -> `unencrypted_frame` must be nullptr
+typedef struct
+{
+    wifi_pkt_rx_ctrl_t *radio_header;
+    espnow_frame_format_t *unencrypted_frame;
+    espnow_frame_format_ccmp_t *ccmp_encrypted_frame;
 } espnow_frame_recv_info_t;
 ```
 
@@ -312,7 +365,7 @@ void loop()
 
 ### Some Words About Encryption
 
-This library does not support ESP-NOW API's encryption mechanism. However, it is important for me to share some of my findings related to the encryption. I think it may be useful to anyone that desires to use directly the `ESP-NOW API`. Can't set encryption for multicast peers such as `broadcast` MAC. Setting `PMK` only will not encrypt anything. You need to set the `LMK` for the specific peer to achieve `CCMP` level encryption for the frame. If encryption is successful, you will see that data will be encrypted in `Wireshark`. In my understanding, for every pair of peers you will need an `LMK`. Or you can use the same `LMK` across the board. For example:
+This library finally support ESP-NOW API's encryption mechanism. It is important for me to share some of my findings related to the encryption. I think it may be useful to anyone that desires to use directly the `ESP-NOW API`. Can't set encryption for multicast peers such as `broadcast` MAC. Setting `PMK` only will not encrypt anything. You need to set the `LMK` for the specific peer to achieve `CCMP` level encryption for the frame. If encryption is successful, you will see that data will be encrypted in `Wireshark`. However, the promiscuous packet in `ESP` will have the data part decrypted. In my understanding, for every pair of peers you will need an `LMK`. Or you can use the same `LMK` across the board. For example:
 
 ```txt
 There are 3 devices. Device A, B, C and none of them has a multicast MAC.

@@ -27,7 +27,7 @@ typedef struct
 {
 	uint8_t mac[MAC_ADDR_LEN];
 	bool encrypted;
-	uint32_t time_peer_added;
+	uint32_t time_peer_added = 0;
 } peer_t;
 
 typedef struct
@@ -134,8 +134,6 @@ public:
 	 */
 	void waitForTXQueueToBeEmptied();
 
-	void sendTest(int data);
-
 	/**
 	 * @brief Attach a callback function to be run on every received message
 	 * @param frame_rcvd_cb Pointer to the callback function
@@ -155,7 +153,7 @@ public:
 	 * @param peer_addr_to_add Peer to add
 	 * @param lmk Pointer to the buffer that contains user provided LMK
 	 * @return `true` if success adding peer, `false` if failed adding peer
-	 * @note By default, `lmk` is nullptr, if not null then peer will be encrypted. Make sure it is 16 bytes
+	 * @note By default, `lmk` is nullptr. Make sure it is 16 bytes. If LMK null OR MAC is multicast/broadcast OR PMK is not set, the peer will not be encrypted
 	 */
 	bool addPeer(const uint8_t *peer_addr_to_add, const uint8_t *lmk = nullptr);
 

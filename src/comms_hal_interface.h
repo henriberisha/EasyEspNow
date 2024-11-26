@@ -20,6 +20,8 @@ typedef enum {
 */
 
 // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_now.html#frame-format
+
+// These are common fields for both encrypted and unencrypted frames
 typedef struct
 {
     unsigned protocol : 2;
@@ -31,25 +33,55 @@ typedef struct
     uint8_t source_address[6];
     uint8_t broadcast_address[6];
     uint16_t sequence_control;
+} __attribute__((packed)) espnow_frame_header_common_t;
 
-    uint8_t category_code;
+// Unencrypted frame as a promiscuous packet in ESP
+typedef struct
+{
+    espnow_frame_header_common_t esp_now_frame_header;
+    uint8_t category_code;              // 0x7f ; set to the value (127)
     uint8_t organization_identifier[3]; // 0x18fe34
     uint8_t random_values[4];
     struct
     {
         uint8_t element_id;                 // 0xdd ; set to the value (221)
-        uint8_t length;                     //
+        uint8_t length;                     // The length is the total length of Organization Identifier, Type, Version and Body
         uint8_t organization_identifier[3]; // 0x18fe34
-        uint8_t type;                       // 4
-        uint8_t version;
+        uint8_t type;                       // 0x04 ; the Type field is set to the value (4) indicating ESP-NOW
+        uint8_t version;                    // the Version field is set to the version of ESP-NOW.
         uint8_t body[0];
     } vendor_specific_content;
 } __attribute__((packed)) espnow_frame_format_t;
 
+// Encrypted CCMP frame promiscuous packet in ESP
+typedef struct
+{
+    espnow_frame_header_common_t esp_now_frame_header;
+    uint8_t ccmp_parameters[8];
+
+    // The rest are the decrypted fields. If you are sniffing in Wireshark the raw 802.11 packets, you will not see the below, only the encrypted data
+    // You can see the following if you print the raw bytes of the packets
+    uint8_t category_code;              // 0x7f ; set to the value (127)
+    uint8_t organization_identifier[3]; // 0x18fe34
+    uint8_t random_values[4];
+    struct
+    {
+        uint8_t element_id;                 // 0xdd ; set to the value (221)
+        uint8_t length;                     // The length is the total length of Organization Identifier, Type, Version and Body
+        uint8_t organization_identifier[3]; // 0x18fe34
+        uint8_t type;                       // 0x04 ; the Type field is set to the value (4) indicating ESP-NOW
+        uint8_t version;                    // the Version field is set to the version of ESP-NOW.
+        uint8_t body[0];
+    } vendor_specific_content;
+} __attribute__((packed)) espnow_frame_format_ccmp_t;
+
+// If frame received is unencrypted -> `ccmp_encrypted_frame` must be nullptr
+// If frame received is encrypted -> `unencrypted_frame` must be nullptr
 typedef struct
 {
     wifi_pkt_rx_ctrl_t *radio_header;
-    espnow_frame_format_t *esp_now_frame;
+    espnow_frame_format_t *unencrypted_frame;
+    espnow_frame_format_ccmp_t *ccmp_encrypted_frame;
 } espnow_frame_recv_info_t;
 
 typedef std::function<void(const uint8_t *src_mac, const uint8_t *data, int data_len, espnow_frame_recv_info_t *esp_now_frame)> frame_rcvd_data;

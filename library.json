@@ -1,8 +1,8 @@
 {
   "name": "EasyEspNow",
   "frameworks": "Arduino",
-  "version": "1.0.0",
-  "keywords": "ESP-NOW, home-station, node, mesh, peers",
+  "version": "2.0.0",
+  "keywords": "ESP-NOW, home-station, node, mesh, peers, IoT, encryption, CCMP, AES-128",
   "platforms": ["espressif32"],
   "description": "An easy-to-use ESP-NOW wrapper library for ESP platform that simplifies peer communication via ESP-NOW protocol and data handling.",
   "url": "https://github.com/henriberisha/EasyEspNow.git",

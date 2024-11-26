@@ -279,10 +279,12 @@ void EasyEspNow::onDataSent(frame_sent_data frame_sent_cb)
 bool EasyEspNow::addPeer(const uint8_t *peer_addr_to_add, const uint8_t *lmk)
 {
 	// multicast/broadcast peers cannot be encrypted,
-	// that is why we need to check the LSB for the first byte of MAC if it is 1
-	bool condition_to_not_encrypt = (lmk == nullptr || peer_addr_to_add[0] & 0x01);
+	// that is why we need to check the LSB in the first byte of MAC if it is 1
+	// will not allow addition of encrypted peer if PMK has not been set. Even though ESP NOW has a default PMK, for the best security of the user, a custom PMK is preferred. This forces it in a way
+	bool condition_to_not_encrypt = (lmk == nullptr || peer_addr_to_add[0] & 0x01 || pmk_is_set == false);
 	// peer can be in a different interface from the home (this station) and still receive the message.
 	esp_now_peer_info_t peer_info;
+	memset(&peer_info, 0, sizeof(peer_info)); // set everything to zero
 	memcpy(peer_info.peer_addr, peer_addr_to_add, MAC_ADDR_LEN);
 	peer_info.ifidx = wifi_phy_interface; // this does not really matter to set it the same as the peer. This is relevant to the home station WiFi mode and interface. ESP_ERR_ESPNOW_IF
 	peer_info.channel = wifi_primary_channel;
@@ -786,6 +788,56 @@ bool EasyEspNow::setChannel(uint8_t primary_channel, wifi_second_chan_t second)
 void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_len)
 {
 	DEBUG(TAG_HELPER, "Calling ESP-NOW low level RX cb");
+	// Uncomment the block to print raw bytes
+	/*
+		// To debug the incoming promiscuous packet, print memory content from the data pointer. MAC header starts with bytes 0xd0, 0x00
+		// here print the first 100 bytes of the data pointer
+		Serial.println("\n");
+		for (int i = 0; i < 100; i++)
+		{
+			Serial.printf("%02X ", data[i]);
+
+			// Add a newline every 16 bytes for readability
+			if ((i + 1) % 16 == 0)
+			{
+				Serial.println();
+			}
+		}
+
+		Serial.println("\n");
+
+		// Here print 200 bytes before the data pointer, and 200 bytes after. Will help you understand the raw bytes of the incoming packets
+		const uint8_t *start = data - 200;
+		for (int i = 0; i < 400; i++)
+		{
+			Serial.printf("%02X ", start[i]);
+
+			// Add a newline every 16 bytes for readability
+			if ((i + 1) % 16 == 0)
+			{
+				Serial.println();
+			}
+		}
+
+		Serial.println("\n");
+	*/
+
+	bool encrypted_frame = false;
+	esp_now_peer_info_t peer_info;
+	peer_t peer = easyEspNow.getPeer(mac_addr, peer_info);
+	if (peer.time_peer_added == 0)
+	{
+		// This means that the frame came from a MAC that is not in the list of peers.
+		// It can be from a broadcast or unicast unencrypted with destination this home MAC
+		encrypted_frame = false;
+	}
+	else
+	{
+		if (peer.encrypted == true) // Sender MAC from an encrypted peer in the list
+			encrypted_frame = true;
+		else // Sender MAC from an unencrypted peer in the list
+			encrypted_frame = false;
+	}
 
 	/** Why This Works:
 	 * In promiscuous mode, the received ESP-NOW data is part of a larger 802.11 packet (Management -> Action Frame ).
@@ -793,16 +845,34 @@ void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_le
 	 * By manipulating the pointer (shifting it back), you're able to access the surrounding metadata,
 	 * such as the frame headers and control information that are part of the full 802.11 packet.
 	 */
-
-	espnow_frame_format_t *esp_now_packet = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
-	wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
-	wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
-
-	espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .esp_now_frame = esp_now_packet};
-
-	if (easyEspNow.dataReceived != nullptr)
+	if (encrypted_frame)
 	{
-		easyEspNow.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
+		DEBUG(TAG_HELPER, "Incoming CCMP Encrypted Frame...");
+
+		espnow_frame_format_ccmp_t *esp_now_packet = (espnow_frame_format_ccmp_t *)(data - sizeof(espnow_frame_format_ccmp_t));
+		wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_ccmp_t));
+		wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
+
+		espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .unencrypted_frame = nullptr, .ccmp_encrypted_frame = esp_now_packet};
+
+		if (easyEspNow.dataReceived != nullptr)
+		{
+			easyEspNow.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
+		}
+	}
+	else
+	{
+		DEBUG(TAG_HELPER, "Incoming Unencrypted Frame...");
+
+		espnow_frame_format_t *esp_now_packet = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
+		wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
+		wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
+		espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .unencrypted_frame = esp_now_packet, .ccmp_encrypted_frame = nullptr};
+
+		if (easyEspNow.dataReceived != nullptr)
+		{
+			easyEspNow.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
+		}
 	}
 }
 
