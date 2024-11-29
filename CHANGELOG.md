@@ -16,7 +16,7 @@ Upgrade to extend functionality to support native CCMP encryption by setting PMK
 - Added structure `espnow_frame_format_ccmp_t` to handle CCMP encrypted frame.
 - Modified `espnow_frame_recv_info_t` structure to include a pointer to `espnow_frame_format_t` and `espnow_frame_format_ccmp_t`. However one of them will be `nullptr` depending which frame comes in.
 - Modified condition to not encrypt a peer. A peer cannot be encrypted if: `LMK is nullptr` OR `peer's MAC is multicast/broadcast` OR `PMK has not been set yet`.
-- 🧙🏻‍♂️ 🪄 Modified `rx_cb` function. Here all the magick happens. Handles properly unencrypted or encrypted incoming frames. First it looks if the source address belongs to a peer. If not a peer, obviously it will be unencrypted because the message will be either broadcast, or unicast with this MAC as a destination (receiver does not need to have the sender as a peer). If a peer, check if encrypted or not. Depending on that, unpack the bytes into the proper structure.
+- 🧙🏻‍♂️ 🪄 Modified `rx_cb` function. Here all the magick happens. Handles properly unencrypted or encrypted incoming frames. First it unpacks the incoming bytes into both unencrypted and encrypted structures. Then it checks if the fields containing the specific info for the frame align.
 
 ## EasyEspNow 1.0.0 (November 2024)
 

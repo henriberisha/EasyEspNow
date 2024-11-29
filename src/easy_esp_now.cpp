@@ -821,55 +821,70 @@ void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_le
 		}
 
 		Serial.println("\n");
-	*/
-
-	bool encrypted_frame = false;
-	esp_now_peer_info_t peer_info;
-	peer_t peer = easyEspNow.getPeer(mac_addr, peer_info);
-	if (peer.time_peer_added == 0)
-	{
-		// This means that the frame came from a MAC that is not in the list of peers.
-		// It can be from a broadcast or unicast unencrypted with destination this home MAC
-		encrypted_frame = false;
-	}
-	else
-	{
-		if (peer.encrypted == true) // Sender MAC from an encrypted peer in the list
-			encrypted_frame = true;
-		else // Sender MAC from an unencrypted peer in the list
-			encrypted_frame = false;
-	}
+		*/
 
 	/** Why This Works:
+	 * In order to figure out if the incoming frame is encrypted or no,
+	 * Unpack bytes of the same frame into both structures.
+	 * When the proper frame comes in, the unpacking of bytes will align properly.
 	 * In promiscuous mode, the received ESP-NOW data is part of a larger 802.11 packet (Management -> Action Frame ).
 	 * When the data pointer is passed to the callback, it only points to the payload portion of the packet.
 	 * By manipulating the pointer (shifting it back), you're able to access the surrounding metadata,
 	 * such as the frame headers and control information that are part of the full 802.11 packet.
 	 */
-	if (encrypted_frame)
+	espnow_frame_format_t *esp_now_packet_unencrypted = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
+	espnow_frame_format_ccmp_t *esp_now_packet_ccmp_encrypted = (espnow_frame_format_ccmp_t *)(data - sizeof(espnow_frame_format_ccmp_t));
+
+	// Serial.println(esp_now_packet_unencrypted->esp_now_frame_header.type);
+	// Serial.println(esp_now_packet_ccmp_encrypted->esp_now_frame_header.type);
+	// Serial.println(esp_now_packet_unencrypted->esp_now_frame_header.subtype);
+	// Serial.println(esp_now_packet_ccmp_encrypted->esp_now_frame_header.subtype);
+	// Serial.println(esp_now_packet_unencrypted->category_code);
+	// Serial.println(esp_now_packet_ccmp_encrypted->category_code);
+	// Serial.printf("0x%02x%02x%02x\n", esp_now_packet_unencrypted->organization_identifier[0], esp_now_packet_unencrypted->organization_identifier[1], esp_now_packet_unencrypted->organization_identifier[2]);
+	// Serial.printf("0x%02x%02x%02x\n", esp_now_packet_ccmp_encrypted->organization_identifier[0], esp_now_packet_ccmp_encrypted->organization_identifier[1], esp_now_packet_ccmp_encrypted->organization_identifier[2]);
+	// Serial.println(esp_now_packet_unencrypted->vendor_specific_content.element_id);
+	// Serial.println(esp_now_packet_ccmp_encrypted->vendor_specific_content.element_id);
+	// Serial.println(esp_now_packet_unencrypted->vendor_specific_content.type);
+	// Serial.println(esp_now_packet_ccmp_encrypted->vendor_specific_content.type);
+
+	// Check alignments, for unencrypted frame,  when all the fields match, then proceed
+	if (esp_now_packet_unencrypted->esp_now_frame_header.type == easyEspNow.i80211_frame_type &&
+		esp_now_packet_unencrypted->esp_now_frame_header.subtype == easyEspNow.i80211_frame_subtype &&
+		esp_now_packet_unencrypted->category_code == easyEspNow.code &&
+		memcmp(esp_now_packet_unencrypted->organization_identifier, easyEspNow.oui, sizeof(esp_now_packet_unencrypted->organization_identifier)) == 0 &&
+		esp_now_packet_unencrypted->vendor_specific_content.element_id == easyEspNow.id &&
+		esp_now_packet_unencrypted->vendor_specific_content.type == easyEspNow.type)
 	{
-		DEBUG(TAG_HELPER, "Incoming CCMP Encrypted Frame...");
+		DEBUG(TAG_HELPER, "Incoming Unencrypted Frame...");
 
-		espnow_frame_format_ccmp_t *esp_now_packet = (espnow_frame_format_ccmp_t *)(data - sizeof(espnow_frame_format_ccmp_t));
-		wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_ccmp_t));
+		wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
 		wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
+		espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .unencrypted_frame = esp_now_packet_unencrypted, .ccmp_encrypted_frame = nullptr};
 
-		espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .unencrypted_frame = nullptr, .ccmp_encrypted_frame = esp_now_packet};
-
+		// Call user-defined RX callback
 		if (easyEspNow.dataReceived != nullptr)
 		{
 			easyEspNow.dataReceived(mac_addr, data, data_len, &frame_promisc_info);
 		}
 	}
-	else
+
+	// Check alignments, for encrypted CCMP frame,  when all the fields match, then proceed
+	else if (esp_now_packet_ccmp_encrypted->esp_now_frame_header.type == easyEspNow.i80211_frame_type &&
+			 esp_now_packet_ccmp_encrypted->esp_now_frame_header.subtype == easyEspNow.i80211_frame_subtype &&
+			 esp_now_packet_ccmp_encrypted->category_code == easyEspNow.code &&
+			 memcmp(esp_now_packet_ccmp_encrypted->organization_identifier, easyEspNow.oui, sizeof(esp_now_packet_ccmp_encrypted->organization_identifier)) == 0 &&
+			 esp_now_packet_ccmp_encrypted->vendor_specific_content.element_id == easyEspNow.id &&
+			 esp_now_packet_ccmp_encrypted->vendor_specific_content.type == easyEspNow.type)
 	{
-		DEBUG(TAG_HELPER, "Incoming Unencrypted Frame...");
+		DEBUG(TAG_HELPER, "Incoming CCMP Encrypted Frame...");
 
-		espnow_frame_format_t *esp_now_packet = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
-		wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
+		wifi_promiscuous_pkt_t *promiscuous_pkt = (wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_ccmp_t));
 		wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
-		espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .unencrypted_frame = esp_now_packet, .ccmp_encrypted_frame = nullptr};
 
+		espnow_frame_recv_info_t frame_promisc_info = {.radio_header = rx_ctrl, .unencrypted_frame = nullptr, .ccmp_encrypted_frame = esp_now_packet_ccmp_encrypted};
+
+		// Call user-defined RX callback
 		if (easyEspNow.dataReceived != nullptr)
 		{
 			easyEspNow.dataReceived(mac_addr, data, data_len, &frame_promisc_info);

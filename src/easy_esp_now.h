@@ -372,6 +372,15 @@ protected:
 	uint8_t zero_mac[MAC_ADDR_LEN] = {0}; // {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	uint8_t my_mac_address[MAC_ADDR_LEN] = {0};
 
+	// ESP-NOW V1 frame specific info
+	uint8_t i80211_frame_type = 0;	   // Management Frame Type
+	uint8_t i80211_frame_subtype = 13; // Action Frame Subtype
+
+	uint8_t code = 127;					 // The Category Code field is set to the value (127) indicating the vendor-specific category.
+	uint8_t oui[3] = {0x18, 0xfe, 0x34}; // The Organization Identifier contains a unique identifier (0x18fe34), which is the first three bytes of MAC address applied by Espressif.
+	uint8_t id = 221;					 // The Element ID field is set to the value (221), indicating the vendor-specific element.
+	uint8_t type = 4;					 // The Type field is set to the value (4) indicating ESP-NOW.
+
 	bool pmk_is_set = false;
 	uint8_t pmk[KEY_LENGTH] = {0};
 
