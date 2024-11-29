@@ -360,7 +360,7 @@ uint8_t *EasyEspNow::deletePeer(bool keep_broadcast_addr)
 
 	for (int i = 0; i < peer_list.peer_number; i++)
 	{
-		//  Time, is saved in millis, time increases, so older peers will have smaller time value as they were adder earlier
+		// Check if broadcast address, keep it if true
 		if (keep_broadcast_addr && memcmp(peer_list.peer[i].mac, ESPNOW_BROADCAST_ADDRESS, MAC_ADDR_LEN) == 0)
 		{
 			DEBUG(TAG_PEERS, "Broadcast MAC detected");
@@ -368,6 +368,7 @@ uint8_t *EasyEspNow::deletePeer(bool keep_broadcast_addr)
 		}
 		else
 		{
+			//  Time, is saved in millis, time increases, so older peers will have smaller time value as they were adder earlier
 			if (peer_list.peer[i].time_peer_added < oldest_peer_time)
 			{
 				oldest_peer_time = peer_list.peer[i].time_peer_added;
@@ -397,7 +398,7 @@ uint8_t *EasyEspNow::deletePeer(bool keep_broadcast_addr)
 		}
 		// Decrease the peer count
 		peer_list.peer_number--;
-		MONITOR(TAG_PEERS, "Successfully deleted peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_mac_to_delete), peer_list.peer_number);
+		MONITOR(TAG_PEERS, "Successfully deleted oldest peer: [" EASYMACSTR "]. Total peers = %d", EASYMAC2STR(peer_mac_to_delete), peer_list.peer_number);
 		return peer_mac_to_delete;
 	}
 	else
@@ -482,7 +483,7 @@ int EasyEspNow::countPeers(CountPeers count_type)
 
 void EasyEspNow::printPeerList()
 {
-	Serial.printf("\n\nPrinting Peer List! Number of peers %d\n", peer_list.peer_number);
+	Serial.printf("\n\nPrinting Peer List! Number of peers: %d\n", peer_list.peer_number);
 	for (int i = 0; i < peer_list.peer_number; i++)
 	{
 		Serial.printf("%s peer [" EASYMACSTR "] with timestamp %lu is %d ms old\n", peer_list.peer[i].encrypted == true ? "ENCRYPTED" : "UNENCRYPTED", MAC2STR(peer_list.peer[i].mac), peer_list.peer[i].time_peer_added, millis() - peer_list.peer[i].time_peer_added);

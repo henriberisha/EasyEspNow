@@ -16,8 +16,8 @@ uint8_t channel = 7;
 int CURRENT_LOG_LEVEL = LOG_VERBOSE;     // need to set some log level, otherwise will have issues
 constexpr auto MAIN_TAG = "MAIN_SKETCH"; // need to set a tag
 
-bool demo_enable_disable_TX_task = true;
-bool TX_task_disabled = false;
+uint8_t pmk[KEY_LENGTH] = {0x1A, 0x2B, 0x3C, 0x4D, 0x5E, 0x6F, 0x7A, 0x8B, 0x9C, 0xAD, 0xBC, 0xCF, 0xDA, 0xEB, 0xFC, 0x0D};
+uint8_t lmk[KEY_LENGTH] = {0x1B, 0x2B, 0x3C, 0x5C, 0x5E, 0x6F, 0x7A, 0x8B, 0x9C, 0xAD, 0xBC, 0xCF, 0xDA, 0xEB, 0xFC, 0x1E};
 
 // this could be the MAC of one of your devices, replace with the correct one
 uint8_t some_peer_device[] = {0xCD, 0x56, 0x47, 0xFC, 0xAF, 0xB3};
@@ -33,34 +33,79 @@ void onFrameReceived_cb(const uint8_t *senderAddr, const uint8_t *data, int len,
     sprintf(sender_mac_char, "%02X:%02X:%02X:%02X:%02X:%02X",
             senderAddr[0], senderAddr[1], senderAddr[2], senderAddr[3], senderAddr[4], senderAddr[5]);
 
-    uint8_t frame_type = frame->esp_now_frame->type;
-    uint8_t frame_subtype = frame->esp_now_frame->subtype;
+    uint8_t frame_type;
+    uint8_t frame_subtype;
+    uint8_t source_address[MAC_ADDR_LEN];
+    uint8_t destination_address[MAC_ADDR_LEN];
+    uint8_t broadcast_address[MAC_ADDR_LEN];
+    uint body_length;
+    uint8_t ccmp_params[8];
+    // in a similar fashion you can get the other data from the frame, just declare them here, and set them according to the incoming frame
+
+    if (frame->unencrypted_frame != nullptr)
+    {
+        // retrieve info from the unencrypted frame
+        frame_type = frame->unencrypted_frame->esp_now_frame_header.type;
+        frame_subtype = frame->unencrypted_frame->esp_now_frame_header.subtype;
+        memcpy(source_address, frame->unencrypted_frame->esp_now_frame_header.source_address, MAC_ADDR_LEN);
+        memcpy(destination_address, frame->unencrypted_frame->esp_now_frame_header.destination_address, MAC_ADDR_LEN);
+        memcpy(broadcast_address, frame->unencrypted_frame->esp_now_frame_header.broadcast_address, MAC_ADDR_LEN);
+
+        // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_now.html#frame-format
+        // Length: The Length is the total length of Organization Identifier, Type, Version and Body.
+        // hence length of Body = total Length - length of Organization Identifier - length of Type - length of Version
+        body_length = frame->unencrypted_frame->vendor_specific_content.length -
+                      sizeof(frame->unencrypted_frame->vendor_specific_content.organization_identifier) -
+                      sizeof(frame->unencrypted_frame->vendor_specific_content.type) -
+                      sizeof(frame->unencrypted_frame->vendor_specific_content.version);
+
+        // similar fashion get more info, also you can get info that is vendor specific and can be found in the unencrypted frame
+    }
+
+    else if (frame->ccmp_encrypted_frame != nullptr)
+    {
+        // retrieve info from the unencrypted frame
+        frame_type = frame->ccmp_encrypted_frame->esp_now_frame_header.type;
+        frame_subtype = frame->ccmp_encrypted_frame->esp_now_frame_header.subtype;
+        memcpy(source_address, frame->ccmp_encrypted_frame->esp_now_frame_header.source_address, MAC_ADDR_LEN);
+        memcpy(destination_address, frame->ccmp_encrypted_frame->esp_now_frame_header.destination_address, MAC_ADDR_LEN);
+        memcpy(broadcast_address, frame->ccmp_encrypted_frame->esp_now_frame_header.broadcast_address, MAC_ADDR_LEN);
+
+        // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_now.html#frame-format
+        // Length: The Length is the total length of Organization Identifier, Type, Version and Body.
+        // hence length of Body = total Length - length of Organization Identifier - length of Type - length of Version
+        body_length = frame->ccmp_encrypted_frame->vendor_specific_content.length -
+                      sizeof(frame->ccmp_encrypted_frame->vendor_specific_content.organization_identifier) -
+                      sizeof(frame->ccmp_encrypted_frame->vendor_specific_content.type) -
+                      sizeof(frame->ccmp_encrypted_frame->vendor_specific_content.version);
+
+        memcpy(ccmp_params, frame->ccmp_encrypted_frame->ccmp_parameters, 8);
+        Serial.printf("CCMP Parameters: ");
+        for (int i = 0; i < sizeof(ccmp_params); i++)
+        {
+            Serial.printf("%02X ", ccmp_params[i]);
+        }
+
+        // similar fashion get more info, also you can get ccmp parameters found in encrypted frame
+    }
 
     char sender_mac_from_frame_char[18] = {0};
     sprintf(sender_mac_from_frame_char, "%02X:%02X:%02X:%02X:%02X:%02X",
-            frame->esp_now_frame->source_address[0], frame->esp_now_frame->source_address[1], frame->esp_now_frame->source_address[2],
-            frame->esp_now_frame->source_address[3], frame->esp_now_frame->source_address[4], frame->esp_now_frame->source_address[5]);
+            source_address[0], source_address[1], source_address[2],
+            source_address[3], source_address[4], source_address[5]);
 
     char destination_mac_from_frame_char[18] = {0};
     sprintf(destination_mac_from_frame_char, "%02X:%02X:%02X:%02X:%02X:%02X",
-            frame->esp_now_frame->destination_address[0], frame->esp_now_frame->destination_address[1], frame->esp_now_frame->destination_address[2],
-            frame->esp_now_frame->destination_address[3], frame->esp_now_frame->destination_address[4], frame->esp_now_frame->destination_address[5]);
+            destination_address[0], destination_address[1], destination_address[2],
+            destination_address[3], destination_address[4], destination_address[5]);
 
     char broadcast_mac_from_frame_char[18] = {0};
     sprintf(broadcast_mac_from_frame_char, "%02X:%02X:%02X:%02X:%02X:%02X",
-            frame->esp_now_frame->broadcast_address[0], frame->esp_now_frame->broadcast_address[1], frame->esp_now_frame->broadcast_address[2],
-            frame->esp_now_frame->broadcast_address[3], frame->esp_now_frame->broadcast_address[4], frame->esp_now_frame->broadcast_address[5]);
+            broadcast_address[0], broadcast_address[1], broadcast_address[2],
+            broadcast_address[3], broadcast_address[4], broadcast_address[5]);
 
     unsigned int channel = frame->radio_header->channel;
     signed int rssi = frame->radio_header->rssi;
-
-    // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_now.html#frame-format
-    // Length: The Length is the total length of Organization Identifier, Type, Version and Body.
-    // hence length of Body = total Length - length of Organization Identifier - length of Type - length of Version
-    uint body_length = frame->esp_now_frame->vendor_specific_content.length -
-                       sizeof(frame->esp_now_frame->vendor_specific_content.organization_identifier) -
-                       sizeof(frame->esp_now_frame->vendor_specific_content.type) -
-                       sizeof(frame->esp_now_frame->vendor_specific_content.version);
 
     Serial.printf("Comms Received: SENDER_MAC: %s, SENDER_MAC_FROM_FRAME: %s, DEST_MAC: %s, BROADCAST_MAC: %s\n"
                   "RSSI: %d, CHANNEL: %d, TYPE: %d, SUBTYPE: %d\n",
@@ -109,6 +154,18 @@ void setup()
         MONITOR(MAIN_TAG, "Success to begin EasyEspNow!! Primary Channel: %d. Secondary Channel: %d", easyEspNow.getPrimaryChannel(), easyEspNow.getSecondaryChannel()); // secondary will display `wifi_second_chan_t` enum value
     else
         MONITOR(MAIN_TAG, "Fail to begin EasyEspNow!!");
+
+    bool set_PMK = easyEspNow.setPMK(pmk);
+    uint8_t my_set_pmk[KEY_LENGTH];
+    bool get_PMK = easyEspNow.getPMK(my_set_pmk);
+    if (get_PMK)
+    {
+        Serial.printf("PMK was set to: ");
+        for (int i = 0; i < sizeof(my_set_pmk); i++)
+        {
+            Serial.printf("%02X ", my_set_pmk[i]);
+        }
+    }
 
     // this station's MAC
     uint8_t *my_mac = easyEspNow.getDeviceMACAddress();
@@ -226,7 +283,7 @@ void setup()
     while (peer_list.peer_number > 0)
     {
         // this will delete Broadcast address as well
-        // if you want to keep broadcast address, adjust the while loop `peer_list.peer_number > 1`
+        // if you want to keep broadcast address, adjust the while loop `peer_list.peer_number > 1` and set `true` the argument for delete peer
         // otherwise you will end into an infinite loop
         uint8_t *oldest_mac = easyEspNow.deletePeer(false);
         if (oldest_mac)
@@ -235,6 +292,9 @@ void setup()
             MONITOR(MAIN_TAG, "Failed deleting oldest peer");
 
         peer_list = easyEspNow.getPeerList(); // retrieve the peer list
+
+        // to avoid memory leak
+        free(oldest_mac);
     }
 
     /* Print peer list again to check updates*/
@@ -244,8 +304,9 @@ void setup()
                   easyEspNow.countPeers(TOTAL_NUM), easyEspNow.countPeers(ENCRYPTED_NUM), easyEspNow.countPeers(UNENCRYPTED_NUM));
 
     // add again your initial peers, at this point the list will be empty
-    easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS);
-    easyEspNow.addPeer(some_peer_device);
+    easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS);    // unencrypted
+    easyEspNow.addPeer(some_peer_device);            // unencrypted
+    easyEspNow.addPeer(some_other_peer_device, lmk); // encrypted
 
     // Register your custom callbacks
     easyEspNow.onDataReceived(onFrameReceived_cb);
