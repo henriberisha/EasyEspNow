@@ -21,6 +21,9 @@ uint8_t channel = 7;
 int CURRENT_LOG_LEVEL = LOG_VERBOSE;     // need to set the log level, otherwise will have issues
 constexpr auto MAIN_TAG = "MAIN_SKETCH"; // need to set a tag
 
+uint8_t pmk[KEY_LENGTH] = {0x1A, 0x2B, 0x3C, 0x4D, 0x5E, 0x6F, 0x7A, 0x8B, 0x9C, 0xAD, 0xBC, 0xCF, 0xDA, 0xEB, 0xFC, 0x0D};
+uint8_t lmk[KEY_LENGTH] = {0x1B, 0x2B, 0x3C, 0x5C, 0x5E, 0x6F, 0x7A, 0x8B, 0x9C, 0xAD, 0xBC, 0xCF, 0xDA, 0xEB, 0xFC, 0x1E};
+
 // this could be the MAC of one of your devices, replace with the correct one
 uint8_t some_peer_device[] = {0xCD, 0x56, 0x47, 0xFC, 0xAF, 0xB3};
 
@@ -73,11 +76,29 @@ void processRXTask(void *pvParameters)
 
 void onFrameReceived_cb(const uint8_t *senderAddr, const uint8_t *data, int len, espnow_frame_recv_info_t *frame)
 {
-    uint8_t frame_type = frame->esp_now_frame->type;
-    uint8_t frame_subtype = frame->esp_now_frame->subtype;
+    uint8_t frame_type;
+    uint8_t frame_subtype;
+    uint8_t destination_address[MAC_ADDR_LEN];
     unsigned int channel = frame->radio_header->channel;
     signed int rssi = frame->radio_header->rssi;
 
+    if (frame->unencrypted_frame != nullptr)
+    {
+        // retrieve info from the unencrypted frame
+        frame_type = frame->unencrypted_frame->esp_now_frame_header.type;
+        frame_subtype = frame->unencrypted_frame->esp_now_frame_header.subtype;
+        memcpy(destination_address, frame->unencrypted_frame->esp_now_frame_header.destination_address, MAC_ADDR_LEN);
+        // similar fashion get more info, also you can get info that is vendor specific and can be found in the unencrypted frame
+    }
+
+    else if (frame->ccmp_encrypted_frame != nullptr)
+    {
+        // retrieve info from the unencrypted frame
+        frame_type = frame->ccmp_encrypted_frame->esp_now_frame_header.type;
+        frame_subtype = frame->ccmp_encrypted_frame->esp_now_frame_header.subtype;
+        memcpy(destination_address, frame->ccmp_encrypted_frame->esp_now_frame_header.destination_address, MAC_ADDR_LEN);
+        // similar fashion get more info, also you can get ccmp parameters found in encrypted frame
+    }
     /* Here you should further process your RX messages as needed */
 
     int enqueued_rx_messages = uxQueueMessagesWaiting(rxQueue);
@@ -92,7 +113,7 @@ void onFrameReceived_cb(const uint8_t *senderAddr, const uint8_t *data, int len,
         rx_message.rssi = rssi;
         rx_message.channel = channel;
         memcpy(rx_message.srcAddress, senderAddr, ESP_NOW_ETH_ALEN);
-        memcpy(rx_message.dstAddress, frame->esp_now_frame->destination_address, ESP_NOW_ETH_ALEN);
+        memcpy(rx_message.dstAddress, destination_address, ESP_NOW_ETH_ALEN);
         memcpy(rx_message.payload, data, len);
 
         // portMAX_DELAY -> will wait indefinitely
@@ -136,6 +157,19 @@ void setup()
     else
         MONITOR(MAIN_TAG, "Fail to begin EasyEspNow!!");
 
+    // Optional if you want CCMP encryption
+    bool set_PMK = easyEspNow.setPMK(pmk);
+    uint8_t my_set_pmk[KEY_LENGTH];
+    bool get_PMK = easyEspNow.getPMK(my_set_pmk);
+    if (get_PMK)
+    {
+        Serial.printf("PMK was set to: ");
+        for (int i = 0; i < sizeof(my_set_pmk); i++)
+        {
+            Serial.printf("%02X ", my_set_pmk[i]);
+        }
+    }
+
     uint8_t *my_mac = easyEspNow.getDeviceMACAddress();
     easyEspNow.easyPrintMac2Char(my_mac, MAC_ADDR_LEN);
     Serial.println();
@@ -174,7 +208,7 @@ void setup()
     easyEspNow.addPeer(ESPNOW_BROADCAST_ADDRESS);
 
     // Here you add a unicast peer device, no need to worry about the peer info
-    easyEspNow.addPeer(some_peer_device);
+    easyEspNow.addPeer(some_peer_device, lmk);
 }
 
 void loop()

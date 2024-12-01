@@ -161,21 +161,48 @@ void onFrameReceived_cb(const uint8_t *senderAddr, const uint8_t *data, int len,
     sprintf(sender_mac_char, "%02X:%02X:%02X:%02X:%02X:%02X",
             senderAddr[0], senderAddr[1], senderAddr[2], senderAddr[3], senderAddr[4], senderAddr[5]);
 
-    uint8_t frame_type = frame->esp_now_frame->type;
-    uint8_t frame_subtype = frame->esp_now_frame->subtype;
+    uint8_t frame_type;
+    uint8_t frame_subtype;
+    uint8_t source_address[MAC_ADDR_LEN];
+    uint8_t destination_address[MAC_ADDR_LEN];
+
+    if (frame->unencrypted_frame != nullptr)
+    {
+        // retrieve info from the unencrypted frame
+        frame_type = frame->unencrypted_frame->esp_now_frame_header.type;
+        frame_subtype = frame->unencrypted_frame->esp_now_frame_header.subtype;
+        memcpy(source_address, frame->unencrypted_frame->esp_now_frame_header.source_address, MAC_ADDR_LEN);
+        memcpy(destination_address, frame->unencrypted_frame->esp_now_frame_header.destination_address, MAC_ADDR_LEN);
+        // similar fashion get more info, also you can get info that is vendor specific and can be found in the unencrypted frame
+    }
+
+    else if (frame->ccmp_encrypted_frame != nullptr)
+    {
+        // retrieve info from the unencrypted frame
+        frame_type = frame->ccmp_encrypted_frame->esp_now_frame_header.type;
+        frame_subtype = frame->ccmp_encrypted_frame->esp_now_frame_header.subtype;
+        memcpy(source_address, frame->ccmp_encrypted_frame->esp_now_frame_header.source_address, MAC_ADDR_LEN);
+        memcpy(destination_address, frame->ccmp_encrypted_frame->esp_now_frame_header.destination_address, MAC_ADDR_LEN);
+        // similar fashion get more info, also you can get ccmp parameters found in encrypted frame
+    }
+
+    char sender_mac_from_frame_char[18] = {0};
+    sprintf(sender_mac_from_frame_char, "%02X:%02X:%02X:%02X:%02X:%02X",
+            source_address[0], source_address[1], source_address[2],
+            source_address[3], source_address[4], source_address[5]);
 
     char destination_mac_from_frame_char[18] = {0};
     sprintf(destination_mac_from_frame_char, "%02X:%02X:%02X:%02X:%02X:%02X",
-            frame->esp_now_frame->destination_address[0], frame->esp_now_frame->destination_address[1], frame->esp_now_frame->destination_address[2],
-            frame->esp_now_frame->destination_address[3], frame->esp_now_frame->destination_address[4], frame->esp_now_frame->destination_address[5]);
+            destination_address[0], destination_address[1], destination_address[2],
+            destination_address[3], destination_address[4], destination_address[5]);
 
     unsigned int channel = frame->radio_header->channel;
     signed int rssi = frame->radio_header->rssi;
 
     Serial.printf("=========> START incoming message <=========\n");
-    Serial.printf("Comms Received: SENDER_MAC: %s, DEST_MAC: %s\n"
+    Serial.printf("Comms Received: SENDER_MAC: %s, , SENDER_MAC_FROM_FRAME: %s, DEST_MAC: %s\n"
                   "RSSI: %d, CHANNEL: %d, TYPE: %d, SUBTYPE: %d\n",
-                  sender_mac_char, destination_mac_from_frame_char,
+                  sender_mac_char, sender_mac_from_frame_char, destination_mac_from_frame_char,
                   rssi, channel, frame_type, frame_subtype);
 
     /* This is how you normally would print the data */
