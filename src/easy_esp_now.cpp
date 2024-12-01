@@ -835,26 +835,11 @@ void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_le
 	espnow_frame_format_t *esp_now_packet_unencrypted = (espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
 	espnow_frame_format_ccmp_t *esp_now_packet_ccmp_encrypted = (espnow_frame_format_ccmp_t *)(data - sizeof(espnow_frame_format_ccmp_t));
 
-	// Serial.println(esp_now_packet_unencrypted->esp_now_frame_header.type);
-	// Serial.println(esp_now_packet_ccmp_encrypted->esp_now_frame_header.type);
-	// Serial.println(esp_now_packet_unencrypted->esp_now_frame_header.subtype);
-	// Serial.println(esp_now_packet_ccmp_encrypted->esp_now_frame_header.subtype);
-	// Serial.println(esp_now_packet_unencrypted->category_code);
-	// Serial.println(esp_now_packet_ccmp_encrypted->category_code);
-	// Serial.printf("0x%02x%02x%02x\n", esp_now_packet_unencrypted->organization_identifier[0], esp_now_packet_unencrypted->organization_identifier[1], esp_now_packet_unencrypted->organization_identifier[2]);
-	// Serial.printf("0x%02x%02x%02x\n", esp_now_packet_ccmp_encrypted->organization_identifier[0], esp_now_packet_ccmp_encrypted->organization_identifier[1], esp_now_packet_ccmp_encrypted->organization_identifier[2]);
-	// Serial.println(esp_now_packet_unencrypted->vendor_specific_content.element_id);
-	// Serial.println(esp_now_packet_ccmp_encrypted->vendor_specific_content.element_id);
-	// Serial.println(esp_now_packet_unencrypted->vendor_specific_content.type);
-	// Serial.println(esp_now_packet_ccmp_encrypted->vendor_specific_content.type);
-
 	// Check alignments, for unencrypted frame,  when all the fields match, then proceed
+	// `mac_addr` argument should correspond to source address field in the frame
 	if (esp_now_packet_unencrypted->esp_now_frame_header.type == easyEspNow.i80211_frame_type &&
 		esp_now_packet_unencrypted->esp_now_frame_header.subtype == easyEspNow.i80211_frame_subtype &&
-		esp_now_packet_unencrypted->category_code == easyEspNow.code &&
-		memcmp(esp_now_packet_unencrypted->organization_identifier, easyEspNow.oui, sizeof(esp_now_packet_unencrypted->organization_identifier)) == 0 &&
-		esp_now_packet_unencrypted->vendor_specific_content.element_id == easyEspNow.id &&
-		esp_now_packet_unencrypted->vendor_specific_content.type == easyEspNow.type)
+		memcmp(esp_now_packet_unencrypted->esp_now_frame_header.source_address, mac_addr, MAC_ADDR_LEN) == 0)
 	{
 		DEBUG(TAG_HELPER, "Incoming Unencrypted Frame...");
 
@@ -870,12 +855,12 @@ void EasyEspNow::rx_cb(const uint8_t *mac_addr, const uint8_t *data, int data_le
 	}
 
 	// Check alignments, for encrypted CCMP frame,  when all the fields match, then proceed
+	// `mac_addr` argument should correspond to source address field in the frame
+
 	else if (esp_now_packet_ccmp_encrypted->esp_now_frame_header.type == easyEspNow.i80211_frame_type &&
 			 esp_now_packet_ccmp_encrypted->esp_now_frame_header.subtype == easyEspNow.i80211_frame_subtype &&
-			 esp_now_packet_ccmp_encrypted->category_code == easyEspNow.code &&
-			 memcmp(esp_now_packet_ccmp_encrypted->organization_identifier, easyEspNow.oui, sizeof(esp_now_packet_ccmp_encrypted->organization_identifier)) == 0 &&
-			 esp_now_packet_ccmp_encrypted->vendor_specific_content.element_id == easyEspNow.id &&
-			 esp_now_packet_ccmp_encrypted->vendor_specific_content.type == easyEspNow.type)
+			 memcmp(esp_now_packet_ccmp_encrypted->esp_now_frame_header.source_address, mac_addr, MAC_ADDR_LEN) == 0)
+
 	{
 		DEBUG(TAG_HELPER, "Incoming CCMP Encrypted Frame...");
 
