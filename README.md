@@ -35,6 +35,7 @@ If you are looking for a more mature library i would strongly advise you to look
 
 [What is ESP-NOW?](https://www.espressif.com/en/solutions/low-power-solutions/esp-now)
 [ESP-NOW low level API](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_now.html)
+[ESP-NOW MAIN EXAMPLE](https://github.com/espressif/esp-idf/blob/master/examples/wifi/espnow/main/espnow_example_main.c)
 [ESP-NOW Example 1](https://github.com/espressif/esp-idf/tree/v5.2.3/examples/wifi/espnow)
 [More examples](https://github.com/espressif/esp-now)
 
@@ -45,6 +46,15 @@ At this time i am not sure if it will work with board versions `< 2.0.17`
 
 ### TODOs
 
+- Research long-range mode
+
+```c
+#if CONFIG_ESPNOW_ENABLE_LONG_RANGE
+    ESP_ERROR_CHECK( esp_wifi_set_protocol(ESPNOW_WIFI_IF, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G|WIFI_PROTOCOL_11N|WIFI_PROTOCOL_LR) );
+#endif
+```
+
+- Research ESP-NOW V2 with `ESP_NOW_MAX_DATA_LEN_V2 = 1490 bytes`
 - Extend this library to work for `ESP8266` boards. Currently i do not have the time bandwidth to work on it.
 - Modify this library to work for board versions `>= 3.x`
 
@@ -53,7 +63,7 @@ At this time i am not sure if it will work with board versions `< 2.0.17`
 - `QuickStart.ino` -> basic functionality, START HERE
 - `AllFunctions.ino` -> extended functionality showcasing full API
 - `ProcessRX.ino` -> how to process RX messages in the main sketch by the user in a similar fashion how TX is processed by the library in the background. This also shows how TX and RX happen together in the same runtime. Note: You will need another device that is sending data either to Broadcast MAC or Receiver device MAC.
-- `EncryptedSender.ino` and `EncryptedReceiver.ino` -> these sketches show how to encrypt data in user level and send it encrypted. On the other hand, data is received, decrypted. This example was needed because user must have the ability to send encrypted data. In the past version V1.0.0 this library did not support the native `ESP-NOW` encryption which requires setting `PMK` and `LMK`. Now it does. What you can do, is encrypt in user level, and still send it as encrypted by leveraging CCMP encryption that is not handled. Still in the receiving end, you will have to decrypt to original message. Cool huh, now you have 2 layers of encryption.
+- `EncryptedSender.ino` and `EncryptedReceiver.ino` -> these sketches show how to encrypt data using AES128 algorithm from `Crypto` library in user level and send it encrypted. On the other hand, data is received, decrypted. This example was needed because user must have the ability to send encrypted data. In the past version V1.0.0 this library did not support the native `ESP-NOW` encryption which requires setting `PMK` and `LMK`. Now it does. What you can do, is encrypt in user level, and still send it as encrypted by leveraging CCMP encryption that is not handled. Still in the receiving end, you will have to decrypt to original message. Cool huh, now you have 2 layers of encryption. If you try this approach, make sure you set `PMK` and add destination peer as encrypted with `LMK`. You will send the encrypted encryption. Firstly by encrypting in user level, the, that is encrypted again in the background by ESP-NOW api. In the receiving end, you only need to decrypt the user level, because the data will already be decrypted from CCMP layer.
   ![Photo: Encrypted Sent, Decrypted after Receiving ](/send_encrypted_receive_decrypt.png)
 
 ### Technical Explanations
