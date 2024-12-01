@@ -147,7 +147,7 @@ void setup()
     wifi_interface_t wifi_interface = easyEspNow.autoselect_if_from_mode(wifi_mode);
 
     /* begin in synch send */
-    bool begin_esp_now = easyEspNow.begin(channel, wifi_interface, 10, false);
+    bool begin_esp_now = easyEspNow.begin(channel, wifi_interface, 1, true);
     /* begin in asynch send */
     // bool begin_esp_now = easyEspNow.begin(channel, wifi_interface, 7, false);
     if (begin_esp_now)
